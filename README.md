@@ -1,0 +1,2 @@
+# C_to_Python
+A simple parser/converter that converter C statements to Python statements, with some special conversions of 1) functions like strcmp, strcpy, strcat to &lt;var> == &lt;expression> or &lt;var> = &lt;string expression> or &lt;var> += &lt;string expression> 2) structs to classes with a) __init__ (with assignments self.&lt;struct_member> = None), b) get (returns a dictionary with all struct members) and c) __str__ functions
