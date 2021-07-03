@@ -21,10 +21,11 @@ tokens = [
    'LEFTBRACE',
    'RIGHTBRACE',
    'ASSIGN',
-   'EQUAL',  'NOTEQ', 'LARGE', 'SMALL', 'LRGEQ', 'SMLEQ',
+   'EQUAL', 'NOTEQ', 'LARGE', 'SMALL', 'LRGEQ', 'SMLEQ',
     'LEFTBRACKET', 'RIGHTBRACKET',
     'POINTER_TO', 'POINTER_TO_STRUCT',
-    "LITERAL_APOSTROPHE", 'LITERAL_QUOTE'
+    "LITERAL_APOSTROPHE", 'LITERAL_QUOTE',
+    "DOT"
 ]
 
 reserved={
@@ -41,6 +42,8 @@ reserved={
     'int': 'INT',
     'float': 'FLOAT',
     'double': 'DOUBLE',
+    'long': 'LONG',
+    'FILE': 'FILE',
     'continue': 'CONTINUE',
     'struct': 'STRUCT',
     'union': 'UNION',
@@ -49,7 +52,8 @@ reserved={
     'scanf': 'SCANF',
     'unsigned': 'UNSIGNED',
     'and': 'AND', 'or': 'OR', 'not': 'NOT',
-    'typedef': 'TYPEDEF'
+    'typedef': 'TYPEDEF',
+    '#include': 'INCLUDE'
 }
 tokens += reserved.values()
 # Regular expression rules for simple tokens
@@ -99,6 +103,8 @@ t_OR = r"\|\|"
 t_AND = r"\&\&"
 t_NOT = r"\!"
 t_TYPEDEF = r"typedef\s*"
+t_INCLUDE = r"\#include*"
+t_DOT = r"\."
 
 def t_POINTER_TO_STRUCT(t):
     r'[a-zA-Z_][a-zA-Z0-9_]*\-\>[a-zA-Z_][a-zA-Z0-9_]*'
@@ -156,6 +162,8 @@ def p_statement_assign(p):
     p[0] = p[1] + ' = ' + str(p[3])
 def p_name(p):
     '''name : ID
+              | ID LEFTBRACKET RIGHTBRACKET
+              | ID LEFTBRACKET NUMBER RIGHTBRACKET
               | POINTER_TO
               | POINTER_TO_STRUCT'''
     p[0] = p[1].replace("->", ".").replace("*", "")
@@ -281,10 +289,13 @@ def p_arg_type(p):
     '''arg_type : INT
                   | FLOAT
                   | DOUBLE
+                  | LONG
                   | CHAR
-                  | UNSIGNED CHAR'''
+                  | UNSIGNED CHAR
+                  | FILE
+                  | ID'''
     if p[1] == "unsigned": p[1] = p[2]
-    p[0] = 'str' if p[1] == 'char' else p[1]
+    p[0] = 'str' if p[1] == 'char' else 'TextIO' if p[1] == 'FILE' else p[1]
 def p_function_name(p):
     'function_name : ID'
     p[0] = p[1]
@@ -349,7 +360,7 @@ def p_statement_while(p):
     'statement : WHILE LPAREN expression RPAREN statement SEMICOLON'
     p[0] = ("while " + p[3] + ":" + p[5]).replace("NULL", "None")
 def p_statement_typedef(p):
-    'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE name SEMICOLON'
+    'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE SEMICOLON name SEMICOLON'  # necessary evil, semicolon after rightbrace
     body_init, body_get = "", ""
     pair = typedef_vars[-1]
     for k, v in pair.items(): dimname = "[self." + k + "]"
@@ -364,7 +375,7 @@ def p_statement_typedef(p):
     for k, v in pair.items():
         body_init += "\n\t\t\tself." + k + " = None  # type: " + v[0]
         body_get += "'" + k + "':self." + k
-    p[0] = "\nclass " + p[6].strip() + ":\n\t\tdef __init__(self):" + body_init + "\n\t\tdef get(self):\n\t\t\treturn {" + body_get + "}" + "\n\t\tdef __str__(self):\n\t\t\treturn json.dumps(self.get())"
+    p[0] = "\nclass " + p[7].strip() + ":\n\t\tdef __init__(self):" + body_init + "\n\t\tdef get(self):\n\t\t\treturn {" + body_get + "}" + "\n\t\tdef __str__(self):\n\t\t\treturn json.dumps(self.get())"
 def p_type_declarations(p):
     '''declarations : declarations declaration
                         | declaration'''
@@ -381,16 +392,50 @@ def p_type(p):
     '''typ : INT
             | FLOAT
             | DOUBLE
+            | LONG
             | CHAR
-            | UNSIGNED CHAR'''
+            | UNSIGNED CHAR
+            | FILE
+            | ID'''
     if p[1] == "unsigned": p[1] = p[2]
     p[0] = 'str' if p[1] == 'char' else p[1]
+def p_statement_include(p):
+    '''statement : INCLUDE SMALL name DOT name LARGE
+                    | INCLUDE LITERAL_APOSTROPHE
+                    | INCLUDE LITERAL_QUOTE'''
+    p[0] = p[1] + " " + "".join([pi for pi in p[2:]])
+    if len(p) == 3: p[0] = "import " + p[2][1:-3] + ".py\t" + p[0]
 # Error rule for syntax errors
 def p_error(p):
     print('Syntax error at "%s"' % p.value)
     exit(1)
 
     # Build the parser
+
+def main(statement_asis):
+    statement = pattern_tabs.sub("", pattern_spaces_2_or_more.sub(r" ", statement_asis)).replace("}","};")  # necessary evil, to bypass syntax error in switch/case with {} not followed by ;
+    # print('before lexing/parsing', statement[:-1])
+    lexer.input(statement)
+    # Tokenize
+    # while 1:
+    #    tok = lexer.token()
+    #    if not tok: break      # No more input
+    #    print("This is a token: (", tok.type,", ",tok.value,")")
+    # for tok in iter(lex.token, None):  print(repr(tok.type), repr(tok.value))
+
+    # parser
+    # Yacc example
+    parser = yacc.yacc(debug=True)
+    # while True:
+    #     try:
+    #         s = input('calc > ')
+    #     except EOFError:
+    #         break
+    #     if not s: continue
+    result = parser.parse(statement)
+    return pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 == \2", result)))
+
+
 if __name__ == '__main__':
     # Build the lexer
     lexer = lex.lex()
@@ -399,13 +444,15 @@ if __name__ == '__main__':
     stmt_comment = " /* comment */"
     stmt_assignment = "choice = (3 + 4 * 8 % 3) / 7 // rest of line a comment "
     stmt_function_declaration_simple = "int gcd(unsigned char u, int v){ if(v==2) return u - v * w;}"
-    # stmt_function_declaration_complex = "int gcd(int u, int v){ if(v==k) return u * v/(w+r); else return gcd(v, v + (u-v)/(v-u));}"
-    stmt_function_declaration_complex = "int choice(int type, unsigned char *word){if(stype!='kartari') {choice = (3 + 4 * 8) / 7; blah = gcd->yt - rt->uy} else choice = rt->uy;}"
+    stmt_function_declaration_complex = "int gcd(int u, int v){ if(v==k) return u * v/(w+r); else return gcd(v, v + (u-v)/(v-u));}"
+    stmt_function_declaration_complex1 = "int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean)"
+    stmt_function_declaration_complex2 = "int choice(int type, unsigned char *word){if(stype!='kartari') {choice = (3 + 4 * 8) / 7; blah = gcd->yt - rt->uy} else choice = rt->uy;}"
     stmt_assignment_func = 'choice = strcmpi(voice,"karmani")==0'
-    # stmt_if_assign = 'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) choice = rt->uy;'
-    stmt_if_assign = 'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) choice = rt->uy;' \
+    stmt_if_assign = 'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) choice = rt->uy;'
+    stmt_if_assign2 = 'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) choice = rt->uy;' \
                      'if(strcmp(temp->Type,"Noun")==0 && strcmp(temp->specf,"Subject")==0 && temp->subinsen==0){Assignlingavib(drecord);break;}' \
                      'if(temp->next != NULL)temp=temp->next;else break;'
+    stmt_if_assign3 = 'if(a==b){Assignlingavib(drecord);break};temp=temp->next;'
     stmt_strcmp_cpy_cat = 'if(strcmpi(voice,"karmani") ==0) \
           					{ \
           						strcpy(tvibptr->arthaword,tvibptr->bword); \
@@ -428,43 +475,26 @@ if __name__ == '__main__':
                         'case 5:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,"ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ ");break;' \
                         '}'
     stmt_while = 'while(1){if(strcmp(temp->Type,"Noun")==0 && strcmp(temp->specf,"Subject")==0 && temp->subinsen==0){Assignlingavib(drecord);break;}if(temp->next != NULL)temp=temp->next;else break;}'
+    stmt_include = "#include <stdio.h>\n"
+    stmt_include2 = '#include "sengen1.h"\n'
+    stmt_include3 = '#include "data.h"\n'
 
     stmt_typedef = "typedef struct{ int vibhakti[20]; int vacana[20]; int linga[20]; int purusha[20]; unsigned char *subanta[20]; " \
                 "unsigned char *pratipadika[20]; unsigned char *erb[20];         /* End Removed Base */ " \
                 "int wordNum[20]; int numofNouns;} SUBANTA_DATA;"
-    # f = open("Semantic\VIBMENU.C")
-    # csource = f.readlines()
-    # data_csource = " ".join(csource)
+    f = open("I:\VBtoPython\Amarakosha\Semantic\VIBMENU.C")
+    csource = f.readlines()
+    f.close()
+    statement_asis = " ".join(csource)
 
     pattern_crlf, pattern_c_strcmp = re.compile(r"/r/n"), re.compile("strcmpi?\((.+?),(.+?)\)\s*==\s*0")
     pattern_c_strcpy, pattern_c_strcat = re.compile("strcpy\((.+?)\s*,\s*(.+?)\)"), re.compile("strcat\(\s*(.+?)\s*,\s*(.+?)\s*\)")
     pattern_spaces_2_or_more, pattern_tabs = re.compile(" +"), re.compile("\t+")
 
+    print(''.join([stmt_include, stmt_include2]))
     # Give the lexer some input
-    for statement_asis in [stmt_assignment, stmt_assignment_func, stmt_if_assign, stmt_function_declaration_simple, stmt_function_declaration_complex, stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22, stmt_switch_case3, stmt_while, stmt_typedef]:
-    # for statement_asis in [stmt_typedef]:
+    # for statement_asis in csource:
+    # for statement_asis in [stmt_include, stmt_include2, stmt_include2, stmt_assignment, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_function_declaration_simple, stmt_function_declaration_complex, stmt_function_declaration_complex1, stmt_function_declaration_complex2, stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22, stmt_switch_case3, stmt_while, stmt_typedef]:
+    for statement_asis in [''.join([stmt_include, stmt_include2])]:
         case_var_stmt_pairs, typedef_vars = [{}], [{}]
-        if not statement_asis.startswith("typedef"):
-            statement = pattern_tabs.sub("", pattern_spaces_2_or_more.sub(r" ", statement_asis)).replace("}", "};")  # to bypass syntax error in switch/case with {} not followed by ;
-        else: statement = pattern_tabs.sub("", pattern_spaces_2_or_more.sub(r" ", statement_asis))
-        # print('after', statement)
-        lexer.input(statement)
-        # Tokenize
-        # while 1:
-        #    tok = lexer.token()
-        #    if not tok: break      # No more input
-        #    print("This is a token: (", tok.type,", ",tok.value,")")
-        # for tok in iter(lex.token, None):  print(repr(tok.type), repr(tok.value))
-
-        # parser
-        # Yacc example
-        parser = yacc.yacc(debug=True)
-        # while True:
-        #     try:
-        #         s = input('calc > ')
-        #     except EOFError:
-        #         break
-        #     if not s: continue
-        result = parser.parse(statement)
-        result = pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 == \2", result)))
-        print("C statement: %s \nPython statement: %s"%(statement_asis, result))
+        print("C statement: %s \nPython statement: %s"%(statement_asis[:-1], main(statement_asis)))
