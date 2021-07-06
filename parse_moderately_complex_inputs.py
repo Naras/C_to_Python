@@ -140,7 +140,7 @@ def t_error(t):
   t.lexer.skip(1)
 def t_COMMENT_MULTI_LINE(t):
     # r'\#.*'
-    r"\/\*.*\*\/"
+    r"\/\*.*?(\*\/)"
     pass
 def t_COMMENT_SINGLE_LINE(t):
     r"\/[\/]+.* "
@@ -266,15 +266,32 @@ def p_expression_function_invoke(p):
 def p_empty(p):
     'empty :'
     pass
+def p_statement_var_declarations(p):
+    'statement : typ varnames'
+    # print("statement var declarations", [pi for pi in p[1:]])
+    vardecls = []
+    for pi in p[1:]: vardecls.append(pi)
+    # print("vardecls", vardecls)
+    p[0] = ""
+    for item in vardecls[1].split():
+        p[0] += "\n\t" + item + " # type " + vardecls[0]
+def p_var_declarations(p):
+    '''varnames : varnames COMMA varname
+                | varname'''
+    # print("var declarations", [pi for pi in p[1:]])
+    p[0] = ""
+    for i in range(1, len(p), 2):
+        p[0] += p[i] + " "
+def p_var_declaration(p):
+    '''varname : ID
+                | ID ASSIGN expression'''
+    # print("var decl", [pi for pi in p[1:]])
+    p[0] = ''
+    for pi in p[1:]:
+        if pi != None: p[0] += str(pi)
 def p_statement_function_decl(p):
-    'statement : return_type function_name LPAREN arg_declarations RPAREN'
+    'statement : typ function_name LPAREN arg_declarations RPAREN'
     p[0] = 'def ' + p[2] + '(' + p[4][:-2] + ') -> ' + str(p[1]) + ":"
-def p_return_type(p):
-    '''return_type : INT
-                    | FLOAT
-                    | DOUBLE
-                    | CHAR'''
-    p[0] = p[1]
 def p_arg_declarations(p):
     '''arg_declarations : arg_declarations COMMA arg_declaration
                             | arg_declaration
@@ -310,7 +327,7 @@ def p_arg_call(p):
     'arg_call : expression'
     p[0] = p[1] + ', '
 def p_statement_function_def(p):
-    'statement : return_type function_name LPAREN arg_declarations RPAREN LEFTBRACE statement RIGHTBRACE'
+    'statement : typ function_name LPAREN arg_declarations RPAREN LEFTBRACE statement RIGHTBRACE'
     p[0] = 'def ' + p[2] + '(' + p[4][:-2] + ') -> ' + str(p[1]) + ":#<statement-block>{\n\t" + p[7].replace("\n", "\n\t") + "\n\t#}<\statement-block>"
 def p_statement_switch_case(p):
     'statement : SWITCH LPAREN name RPAREN LEFTBRACE cases RIGHTBRACE'
@@ -357,7 +374,7 @@ def p_statement_break(p):
     'statement : BREAK'
     p[0] = "break;"
 def p_statement_while(p):
-    'statement : WHILE LPAREN expression RPAREN statement SEMICOLON'
+    'statement : WHILE LPAREN expression RPAREN statement'
     p[0] = ("while " + p[3] + ":" + p[5]).replace("NULL", "None")
 def p_statement_typedef(p):
     'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE SEMICOLON name SEMICOLON'  # necessary evil, semicolon after rightbrace
@@ -366,10 +383,11 @@ def p_statement_typedef(p):
     for k, v in pair.items(): dimname = "[self." + k + "]"
     for pair in typedef_vars[:-1]:
         for k, v in pair.items():
+            val = "None" if len(v) < 3 else v[2]
             if v[1] == 0:
-                body_init += "\n\t\t\tself." + k + " = None  # type: " + v[0]
+                body_init += "\n\t\t\tself." + k + " = " + val + "  # type: " + v[0]
             else:
-                body_init += "\n\t\t\tself." + k + " = None[" + str(v[1]) + "]  # type: List[" + v[0] + "]"
+                body_init += "\n\t\t\tself." + k + " = " + val + str(v[1]) + "]  # type: List[" + v[0] + "]"
             body_get += "'" + k + "':self." + k + dimname + ", "
     pair = typedef_vars[-1]
     for k, v in pair.items():
@@ -384,10 +402,12 @@ def p_type_declarations(p):
         if pi != None: typedef_vars.append(pi)
 def p_type_declaration(p):
     '''declaration : typ name SEMICOLON
-                        | typ name LEFTBRACKET NUMBER RIGHTBRACKET SEMICOLON'''
+                    | typ name ASSIGN expression SEMICOLON
+                    | typ name LEFTBRACKET NUMBER RIGHTBRACKET SEMICOLON'''
     p[0] = {}
-    if len(p) == 4: p[0][p[2]] = [p[1], 0]  # p[0] = "\n\t\t\tself." + p[2] + " = None  # type: " + p[1]
-    else: p[0][p[2]] = [p[1], int(p[4])]  # "\n\t\t\tself." + p[2] + " = None[" + str(p[4]) + "]  # type: List[" + p[1] + "]"
+    if len(p) == 4: p[0][p[2]] = [p[1], 0]
+    elif len(p) == 6: p[0][p[2]] = [p[1], p[5], "="]
+    else: p[0][p[2]] = [p[1], int(p[4])]
 def p_type(p):
     '''typ : INT
             | FLOAT
@@ -441,12 +461,44 @@ if __name__ == '__main__':
     lexer = lex.lex()
 
     # Test it out
-    stmt_comment = " /* comment */"
-    stmt_assignment = "choice = (3 + 4 * 8 % 3) / 7 // rest of line a comment "
-    stmt_function_declaration_simple = "int gcd(unsigned char u, int v){ if(v==2) return u - v * w;}"
-    stmt_function_declaration_complex = "int gcd(int u, int v){ if(v==k) return u * v/(w+r); else return gcd(v, v + (u-v)/(v-u));}"
-    stmt_function_declaration_complex1 = "int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean)"
-    stmt_function_declaration_complex2 = "int choice(int type, unsigned char *word){if(stype!='kartari') {choice = (3 + 4 * 8) / 7; blah = gcd->yt - rt->uy} else choice = rt->uy;}"
+    stmt_comment = "if(tvibptr->stype =='1'){ /*  */yes=findverb;}/*  */"
+    # stmt_comment = "if(tvibptr->stype =='1') /*  */yes=findverb;/*  */"
+    stmt_var_decl_initialized = "int yes=0,success=1;char t='ty'"
+    stmt_assignment = "choice = (3 + 4 * 8 % 3) / 7; a=b; // rest of line a comment "
+    stmt_func_decl_simple = "int gcd(unsigned char u, int v){ if(v==2) return u - v * w;}"
+    stmt_func_decl_complex = "int gcd(int u, int v){ if(v==k) return u * v/(w+r); else return gcd(v, v + (u-v)/(v-u));}"
+    stmt_func_decl_complex1 = "int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean)"
+    stmt_func_decl_complex2 = "int choice(int type, unsigned char *word){if(stype!='kartari') {choice = (3 + 4 * 8) / 7; blah = gcd->yt - rt->uy} else choice = rt->uy;}"
+    stmt_func_def_complex1 = "int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean){" \
+                             "int yes=0,success=1;" \
+                          "if((tvibptr->stype =='1' && strcmp(tvibptr->specf,'dative')==0 ) || tvibptr->stype =='5' || tvibptr->stype=='2'|| tvibptr->stype=='4')" \
+                  "		{/* Check for case where there is only a single meaning for ¸ÂÝÏèÂÜ ÔÛË³èÂÛ */" \
+                  "yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);}return success;}"
+    stmt_func_def_complex2 = "int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean){while(1){" \
+                   "if((tvibptr->stype =='1' && strcmp(tvibptr->specf,'dative')==0 ) || tvibptr->stype =='5' || tvibptr->stype=='2'|| tvibptr->stype=='4'){" \
+                   "/* Check for case where there is only a single meaning for ¸ÂÝÏèÂÜ ÔÛË³èÂÛ */" \
+                   "yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);if(tvibptr->stype=='2' && tvibptr->matnoun !=1 )" \
+                   "{switch(tvibptr->spos){" \
+                   "case 0:if(tvibptr->semlinga==0)strcat(tvibptr->arthaword,'×Ú ');if(tvibptr->semlinga==1)strcat(tvibptr->arthaword,'×£ ');if(tvibptr->semlinga==2)strcat(tvibptr->arthaword,'ÂèÂ ');break;" \
+                   "case 1:strcat(tvibptr->arthaword,'ÂÆèÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ ');break;" \
+                   "case 2:strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ ');break;" \
+                   "case 3:strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ ');break;" \
+                   "case 4:strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ ');break;" \
+                   "case 5:strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ ');break;}}" \
+                   "if(tvibptr->stype == '2' || tvibptr->stype =='4' || tvibptr->stype=='5')success= 0;}if(tvibptr->stype =='1' && (strcmpi(tvibptr->specf,'object')==0)){" \
+                   "       /* Check for case where there is only a single meaning for ÄèÔÛÂÜÍÚ ÔÛË³èÂÛ */" \
+                   "yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);}" \
+                   "/* If not in above case following steps lead to menu display for   selection based on type of vibhakti */ " \
+                   "if(tvibptr->stype =='1') { switch(tvibptr->spos) {" \
+                   "case 0:if(strcmpi(voice,'kartari') ==0)strcpy(tvibptr->arthaword,tvibptr->sword);if(strcmpi(voice,'karmani') ==0){strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÂßÂÚÆÛÏÞÈ³ ');}break;" \
+                   "case 1:if(strcmpi(voice,'kartari') ==0){strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ ');}if(strcmpi(voice,'karmani') ==0){strcpy(tvibptr->arthaword,tvibptr->sword);}break; " \
+                   "case 2:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ ');break; " \
+                   "case 3:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ ');break; " \
+                   "case 4:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ ');break; " \
+                   "case 6:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'×ÌèÊÆèÅÛ ');break; " \
+                   "case 5:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ ');break;} } " \
+                   "if (tvibptr->next != NULL)tvibptr=tvibptr->next; else break;}return success;}"
+    stmt_func_def_vibmenu_full = "int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean) { int yes=0,success=1;  while(1) { if((tvibptr->stype =='1' && strcmp(tvibptr->specf,'dative')==0 ) || tvibptr->stype =='5' || tvibptr->stype=='2'|| tvibptr->stype=='4') { /* Check for case where there is only a single meaning for ¸ÂÝÏèÂÜ ÔÛË³èÂÛ */ yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);  if(tvibptr->stype=='2' && tvibptr->matnoun !=1 ) { switch(tvibptr->spos) { case 0: if(tvibptr->semlinga==0) strcat(tvibptr->arthaword,'×Ú '); if(tvibptr->semlinga==1) strcat(tvibptr->arthaword,'×£ '); if(tvibptr->semlinga==2) strcat(tvibptr->arthaword,'ÂèÂ '); break; case 1: strcat(tvibptr->arthaword,'ÂÆèÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ '); break; case 2: strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ '); break; case 3: strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ '); break; case 4: strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ '); break; case 5: strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ '); break; } } if(tvibptr->stype == '2' || tvibptr->stype =='4' || tvibptr->stype=='5') success= 0;  } if(tvibptr->stype =='1' && (strcmpi(tvibptr->specf,'object')==0)) {        /* Check for case where there is only a single meaning for ÄèÔÛÂÜÍÚ ÔÛË³èÂÛ */ yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean); }   /* If not in above case following steps lead to menu display for    selection based on type of vibhakti */  if(tvibptr->stype =='1')  {  switch(tvibptr->spos)  { case 0: if(strcmpi(voice,'kartari') ==0) strcpy(tvibptr->arthaword,tvibptr->sword); if(strcmpi(voice,'karmani') ==0) { strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÂßÂÚÆÛÏÞÈ³ '); } break;  case 1: if(strcmpi(voice,'kartari') ==0) { strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ '); } if(strcmpi(voice,'karmani') ==0) { strcpy(tvibptr->arthaword,tvibptr->sword); } break;  case 2: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ '); break;  case 3: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ '); break;  case 4: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ '); break;  case 6: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'×ÌèÊÆèÅÛ '); break;  case 5: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ '); break; }  }  if (tvibptr->next != NULL) tvibptr=tvibptr->next;  else  break; } return success; }"
     stmt_assignment_func = 'choice = strcmpi(voice,"karmani")==0'
     stmt_if_assign = 'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) choice = rt->uy;'
     stmt_if_assign2 = 'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) choice = rt->uy;' \
@@ -482,19 +534,82 @@ if __name__ == '__main__':
     stmt_typedef = "typedef struct{ int vibhakti[20]; int vacana[20]; int linga[20]; int purusha[20]; unsigned char *subanta[20]; " \
                 "unsigned char *pratipadika[20]; unsigned char *erb[20];         /* End Removed Base */ " \
                 "int wordNum[20]; int numofNouns;} SUBANTA_DATA;"
-    f = open("I:\VBtoPython\Amarakosha\Semantic\VIBMENU.C")
+    stmt_while_complex1 = "if((tvibptr->stype =='1' && strcmp(tvibptr->specf,'dative')==0 ) || tvibptr->stype =='5' || tvibptr->stype=='2'|| tvibptr->stype=='4')" \
+                  "		{/* Check for case where there is only a single meaning for ¸ÂÝÏèÂÜ ÔÛË³èÂÛ */" \
+                  "yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);}"
+    stmt_while_complex2 = "while(1)  { " \
+                  "if((tvibptr->stype =='1' && strcmp(tvibptr->specf,'dative')==0 ) || tvibptr->stype =='5' || tvibptr->stype=='2'|| tvibptr->stype=='4') " \
+                  "{ /* Check for case where there is only a single meaning for ¸ÂÝÏèÂÜ ÔÛË³èÂÛ */  " \
+                  "yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);   " \
+                  "if(tvibptr->stype=='2' && tvibptr->matnoun !=1 )  {" \
+                  "   switch(tvibptr->spos)   {" \
+                  "  case 0:   if(tvibptr->semlinga==0)    strcat(tvibptr->arthaword,'×Ú ');" \
+                  "   if(tvibptr->semlinga==1)    strcat(tvibptr->arthaword,'×£ ');" \
+                  "   if(tvibptr->semlinga==2)    strcat(tvibptr->arthaword,'ÂèÂ ');   break;  " \
+                  "case 1:   strcat(tvibptr->arthaword,'ÂÆèÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ ');   break;  " \
+                  "case 2:   strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ ');   break;  " \
+                  "case 3:   strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ ');   break;  " \
+                  "case 4:   strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ ');   break;  " \
+                  "case 5:   strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ ');   break;   }" \
+                  "  }  if(tvibptr->stype == '2' || tvibptr->stype =='4' || tvibptr->stype=='5')   success= 0;  } " \
+                  "if(tvibptr->stype =='1' && (strcmpi(tvibptr->specf,'object')==0)) {" \
+                  "    /* Check for case where there is only a single meaning for ÄèÔÛÂÜÍÚ ÔÛË³èÂÛ */  " \
+                  "yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean); }}"
+    stmt_while_complex3 = "while(1){" \
+                   "if((tvibptr->stype =='1' && strcmp(tvibptr->specf,'dative')==0 ) || tvibptr->stype =='5' || tvibptr->stype=='2'|| tvibptr->stype=='4'){" \
+                   "/* Check for case where there is only a single meaning for ¸ÂÝÏèÂÜ ÔÛË³èÂÛ */" \
+                   "yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);if(tvibptr->stype=='2' && tvibptr->matnoun !=1 )" \
+                   "{switch(tvibptr->spos){" \
+                   "case 0:if(tvibptr->semlinga==0)strcat(tvibptr->arthaword,'×Ú ');if(tvibptr->semlinga==1)strcat(tvibptr->arthaword,'×£ ');if(tvibptr->semlinga==2)strcat(tvibptr->arthaword,'ÂèÂ ');break;" \
+                   "case 1:strcat(tvibptr->arthaword,'ÂÆèÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ ');break;" \
+                   "case 2:strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ ');break;" \
+                   "case 3:strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ ');break;" \
+                   "case 4:strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ ');break;" \
+                   "case 5:strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ ');break;}}" \
+                   "if(tvibptr->stype == '2' || tvibptr->stype =='4' || tvibptr->stype=='5')success= 0;}if(tvibptr->stype =='1' && (strcmpi(tvibptr->specf,'object')==0)){" \
+                   "       /* Check for case where there is only a single meaning for ÄèÔÛÂÜÍÚ ÔÛË³èÂÛ */" \
+                   "yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);}" \
+                   "/* If not in above case following steps lead to menu display for   selection based on type of vibhakti */ " \
+                   "if(tvibptr->stype =='1') { switch(tvibptr->spos) {" \
+                   "case 0:if(strcmpi(voice,'kartari') ==0)strcpy(tvibptr->arthaword,tvibptr->sword);if(strcmpi(voice,'karmani') ==0){strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÂßÂÚÆÛÏÞÈ³ ');}break;" \
+                   "case 1:if(strcmpi(voice,'kartari') ==0){strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ ');}if(strcmpi(voice,'karmani') ==0){strcpy(tvibptr->arthaword,tvibptr->sword);}break; " \
+                   "case 2:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ ');break; " \
+                   "case 3:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ ');break; " \
+                   "case 4:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ ');break; " \
+                   "case 6:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'×ÌèÊÆèÅÛ ');break; " \
+                   "case 5:strcpy(tvibptr->arthaword,tvibptr->bword);strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ ');break;} } " \
+                   "if (tvibptr->next != NULL)tvibptr=tvibptr->next; else break;}}"
+
+    f = open("VIBMENU.C")
     csource = f.readlines()
     f.close()
     statement_asis = " ".join(csource)
 
-    pattern_crlf, pattern_c_strcmp = re.compile(r"/r/n"), re.compile("strcmpi?\((.+?),(.+?)\)\s*==\s*0")
-    pattern_c_strcpy, pattern_c_strcat = re.compile("strcpy\((.+?)\s*,\s*(.+?)\)"), re.compile("strcat\(\s*(.+?)\s*,\s*(.+?)\s*\)")
-    pattern_spaces_2_or_more, pattern_tabs = re.compile(" +"), re.compile("\t+")
+    pattern_crlf, pattern_spaces_2_or_more, pattern_tabs, pattern_c_strcmp, pattern_c_strcpy, pattern_c_strcat, \
+    pattern_include, pattern_not_include,  pattern_nl = \
+        re.compile(r"/r/n"), re.compile(" +"), re.compile("\t+"), re.compile("strcmpi?\((.+?),(.+?)\)\s*==\s*0"), \
+        re.compile("strcpy\((.+?)\s*,\s*(.+?)\)"), re.compile("strcat\(\s*(.+?)\s*,\s*(.+?)\s*\)"),\
+        re.compile(r"#include(.+)"), re.compile(r"'^((?!#include).)*$'"), re.compile(r"\n$")
 
-    print(''.join([stmt_include, stmt_include2]))
+    # statement_asis = '\n'.join([stmt_include, stmt_include2, stmt_include3, stmt_assignment, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22, stmt_switch_case3, stmt_while, stmt_typedef])
+    includes = '\n '.join(["#include" + p for p in pattern_include.findall(statement_asis)])
+    # print("includes %s\nasis %s"%(includes, statement_asis))
+    # print(statement_asis, "\nincludes->", includes, pattern_nl.search(statement_asis))
+    # for match in pattern_not_include.findall(statement_asis, re.M): print(match)
+    splits = statement_asis.split(includes)
+    rest = pattern_crlf.sub("", splits[1]).replace("\n", "")
+    # print("includes \n%s\nrest %s"%(includes, rest))
+    # exit(1)
+
     # Give the lexer some input
     # for statement_asis in csource:
-    # for statement_asis in [stmt_include, stmt_include2, stmt_include2, stmt_assignment, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_function_declaration_simple, stmt_function_declaration_complex, stmt_function_declaration_complex1, stmt_function_declaration_complex2, stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22, stmt_switch_case3, stmt_while, stmt_typedef]:
-    for statement_asis in [''.join([stmt_include, stmt_include2])]:
-        case_var_stmt_pairs, typedef_vars = [{}], [{}]
-        print("C statement: %s \nPython statement: %s"%(statement_asis[:-1], main(statement_asis)))
+    # for statement_asis in [stmt_include, stmt_include2, stmt_include2, stmt_assignment, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22, stmt_switch_case3, stmt_while, stmt_typedef]:
+    # for statement in [stmt_func_def_vibmenu_full]:
+    #     case_var_stmt_pairs, typedef_vars = [{}], [{}]
+    #     print("C statement: %s \nPython statement: %s" % (statement, main(statement)))
+    case_var_stmt_pairs, typedef_vars = [{}], [{}]
+    include_statements = []
+    for statement in includes.split("\n"): include_statements.append(main(statement))
+    print("C includes: %s \nPython imports: %s"%(includes, "\n".join(include_statements)))
+    # for statement in rest.split('\n'): print("C statement: %s \nPython statement: %s"%(statement, main(statement)))
+    print("C statement: %s \nPython statement: %s"%(rest, main(rest)))
