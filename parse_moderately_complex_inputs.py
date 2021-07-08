@@ -599,7 +599,7 @@ if __name__ == '__main__':
         case_var_stmt_pairs, typedef_vars = [{}], [{}]
         print("C statement: %s \nPython statement: %s" % (statement, main(statement)))'''
 
-    f = codecs.open("VIBMENU_smaller.C", encoding="utf-8")
+    f = codecs.open("VIBMENU.C", encoding="utf-8")
     csource = f.readlines()
     f.close()
     statement_asis = pattern_crlf.sub("\n", " ".join(csource))
