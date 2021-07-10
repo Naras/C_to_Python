@@ -269,26 +269,44 @@ def p_empty(p):
 def p_statement_var_declarations(p):
     'statement : typ varnames'
     # print("statement var declarations", [pi for pi in p[1:]])
-    vardecls = []
-    for pi in p[1:]: vardecls.append(pi)
-    # print("vardecls", vardecls)
     p[0] = ""
-    for item in vardecls[1].split():
-        p[0] += "\n\t" + item + " # type " + vardecls[0]
+    for pi in p[2:]:
+        for k, v in pi.items():
+            if isinstance(v, list):
+                typ = "List[" + p[1] + "]"
+                variable = k + " = [" + ", ".join([val for val in v if val.strip() != ""]) + "]"
+            else:
+                typ = p[1]
+                variable = k + " = " + v
+            p[0] += "\n\t" + variable + " # type " + typ
 def p_var_declarations(p):
     '''varnames : varnames COMMA varname
                 | varname'''
     # print("var declarations", [pi for pi in p[1:]])
-    p[0] = ""
-    for i in range(1, len(p), 2):
-        p[0] += p[i] + " "
+    p[0] = {}
+    for pi in p[1:]:
+        if isinstance(pi, list):
+            p[0][pi[0]] = pi[2] if len(pi) == 3 else pi[4]
+        elif isinstance(pi, dict):
+            for k, v in pi.items(): p[0][k] = v
 def p_var_declaration(p):
     '''varname : ID
-                | ID ASSIGN expression'''
+                | ID ASSIGN expression
+                | ID LEFTBRACKET RIGHTBRACKET
+                | ID LEFTBRACKET RIGHTBRACKET ASSIGN values_list'''
     # print("var decl", [pi for pi in p[1:]])
-    p[0] = ''
+    p[0] = []
     for pi in p[1:]:
-        if pi != None: p[0] += str(pi)
+        if pi != None: p[0].append(pi)
+def p_var_values_list(p):
+    'values_list : LEFTBRACE values RIGHTBRACE'
+    # print("values_list", [pi for pi in p[2:-1]])
+    p[0] = p[2:-1]
+def p_var_values(p):
+    '''values : values COMMA expression
+                | expression'''
+    # print("values", [pi for pi in p[1:]])
+    p[0] = ", ". join([v for v in p[1:] if v != ","])
 def p_statement_function_decl(p):
     'statement : typ function_name LPAREN arg_declarations RPAREN'
     p[0] = 'def ' + p[2] + '(' + p[4][:-2] + ') -> ' + str(p[1]) + ":"
@@ -584,6 +602,7 @@ if __name__ == '__main__':
     stmt_typedef = "typedef struct{ int vibhakti[20]; int vacana[20]; int linga[20]; int purusha[20]; unsigned char *subanta[20]; " \
                 "unsigned char *pratipadika[20]; unsigned char *erb[20];         /* End Removed Base */ " \
                 "int wordNum[20]; int numofNouns;} SUBANTA_DATA;"
+    stmt_var_decl_array = "unsigned char list[]={'ÈÞÏèÔÚÁèØ', '¤ÈÏÚÁèØ', 'ÄÛÆ', 'ÏÚÂèÏÛ', '¤ØåÏÚÂèÏ', '×ÈèÂÚØ', 'È³èÖ', 'ÌÚ×', '×¢ÔÂè×Ï'};"
     stmt_func_def_vibmenu_full = "int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean) { int yes=0,success=1;  while(1) { if((tvibptr->stype =='1' && strcmp(tvibptr->specf,'dative')==0 ) || tvibptr->stype =='5' || tvibptr->stype=='2'|| tvibptr->stype=='4') { /* Check for case where there is only a single meaning for ¸ÂÝÏèÂÜ ÔÛË³èÂÛ */ yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);  if(tvibptr->stype=='2' && tvibptr->matnoun !=1 ) { switch(tvibptr->spos) { case 0: if(tvibptr->semlinga==0) strcat(tvibptr->arthaword,'×Ú '); if(tvibptr->semlinga==1) strcat(tvibptr->arthaword,'×£ '); if(tvibptr->semlinga==2) strcat(tvibptr->arthaword,'ÂèÂ '); break; case 1: strcat(tvibptr->arthaword,'ÂÆèÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ '); break; case 2: strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ '); break; case 3: strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ '); break; case 4: strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ '); break; case 5: strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ '); break; } } if(tvibptr->stype == '2' || tvibptr->stype =='4' || tvibptr->stype=='5') success= 0;  } if(tvibptr->stype =='1' && (strcmpi(tvibptr->specf,'object')==0)) {        /* Check for case where there is only a single meaning for ÄèÔÛÂÜÍÚ ÔÛË³èÂÛ */ yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean); }   /* If not in above case following steps lead to menu display for    selection based on type of vibhakti */  if(tvibptr->stype =='1')  {  switch(tvibptr->spos)  { case 0: if(strcmpi(voice,'kartari') ==0) strcpy(tvibptr->arthaword,tvibptr->sword); if(strcmpi(voice,'karmani') ==0) { strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÂßÂÚÆÛÏÞÈ³ '); } break;  case 1: if(strcmpi(voice,'kartari') ==0) { strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ '); } if(strcmpi(voice,'karmani') ==0) { strcpy(tvibptr->arthaword,tvibptr->sword); } break;  case 2: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ '); break;  case 3: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ '); break;  case 4: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ '); break;  case 6: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'×ÌèÊÆèÅÛ '); break;  case 5: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ '); break; }  }  if (tvibptr->next != NULL) tvibptr=tvibptr->next;  else  break; } return success; }"
 
     pattern_crlf, pattern_spaces_2_or_more, pattern_tabs, pattern_c_strcmp, pattern_c_strcpy, pattern_c_strcat, \
@@ -594,10 +613,10 @@ if __name__ == '__main__':
 
     # Give the lexer some input
 
-    ''' for statement in [stmt_comment, stmt_var_decl_initialized, stmt_assignment, stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_func_def_complex1, stmt_func_def_complex2, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3,  stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22,  stmt_switch_case3, stmt_while, stmt_while_complex1, stmt_while_complex2, stmt_while_complex3, stmt_include, stmt_include2, stmt_include3, stmt_typedef, stmt_func_def_vibmenu_full]:
-    # for statement in [stmt_comment]:
+    '''for statement in [stmt_comment, stmt_var_decl_initialized, stmt_var_decl_array, stmt_assignment, stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_func_def_complex1, stmt_func_def_complex2, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3,  stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22,  stmt_switch_case3, stmt_while, stmt_while_complex1, stmt_while_complex2, stmt_while_complex3, stmt_include, stmt_include2, stmt_include3, stmt_typedef, stmt_func_def_vibmenu_full]:
+    # for statement in [stmt_typedef]:
         case_var_stmt_pairs, typedef_vars = [{}], [{}]
-        print("C statement: %s \nPython statement: %s" % (statement, main(statement)))'''
+        print("C statement: %s \nPython statement: %s" % (statement, main(pattern_star_slash.sub("*/;", statement)))) # */ to */;'''
 
     f = codecs.open("VIBMENU.C", encoding="utf-8")
     csource = f.readlines()
