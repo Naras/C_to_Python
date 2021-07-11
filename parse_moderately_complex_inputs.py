@@ -1,4 +1,4 @@
-import re, codecs #, icecream as ic
+import re #, codecs #, icecream as ic
 import ply.lex as lex
 import ply.yacc as yacc
 # Get the token map from the lexer.  This is required.
@@ -395,7 +395,7 @@ def p_statement_while(p):
     'statement : WHILE LPAREN expression RPAREN statement'
     p[0] = ("while " + p[3] + ":" + p[5]).replace("NULL", "None")
 def p_statement_typedef(p):
-    'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE SEMICOLON name SEMICOLON'  # necessary evil, semicolon after rightbrace
+    'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE SEMICOLON name'  # necessary evil, semicolon after rightbrace
     body_init, body_get = "", ""
     pair = typedef_vars[-1]
     for k, v in pair.items(): dimname = "[self." + k + "]"
@@ -405,7 +405,7 @@ def p_statement_typedef(p):
             if v[1] == 0:
                 body_init += "\n\t\t\tself." + k + " = " + val + "  # type: " + v[0]
             else:
-                body_init += "\n\t\t\tself." + k + " = " + val + str(v[1]) + "]  # type: List[" + v[0] + "]"
+                body_init += "\n\t\t\tself." + k + " = [" + val + "] * " + str(v[1]) + "  # type: List[" + v[0] + "]"
             body_get += "'" + k + "':self." + k + dimname + ", "
     pair = typedef_vars[-1]
     for k, v in pair.items():
@@ -413,18 +413,21 @@ def p_statement_typedef(p):
         body_get += "'" + k + "':self." + k
     p[0] = "\nclass " + p[7].strip() + ":\n\t\tdef __init__(self):" + body_init + "\n\t\tdef get(self):\n\t\t\treturn {" + body_get + "}" + "\n\t\tdef __str__(self):\n\t\t\treturn json.dumps(self.get())"
 def p_type_declarations(p):
-    '''declarations : declarations declaration
-                        | declaration'''
-    # p[0] = []
-    for pi in p[1:]:
+    '''declarations : declarations declaration statement_delimiter
+                        | declaration statement_delimiter'''
+    for pi in p[1:-1]:
         if pi != None: typedef_vars.append(pi)
+def p_statement_delimiter(p):
+    '''statement_delimiter : statement_delimiter SEMICOLON COMMENT_MULTI_LINE
+                            | statement_delimiter COMMENT_MULTI_LINE SEMICOLON
+                            | SEMICOLON'''
 def p_type_declaration(p):
-    '''declaration : typ name SEMICOLON
-                    | typ name ASSIGN expression SEMICOLON
-                    | typ name LEFTBRACKET NUMBER RIGHTBRACKET SEMICOLON'''
+    '''declaration : typ name
+                    | typ name ASSIGN expression
+                    | typ name LEFTBRACKET NUMBER RIGHTBRACKET'''
     p[0] = {}
-    if len(p) == 4: p[0][p[2]] = [p[1], 0]
-    elif len(p) == 6: p[0][p[2]] = [p[1], p[5], "="]
+    if len(p) == 3: p[0][p[2]] = [p[1], 0]
+    elif len(p) == 5: p[0][p[2]] = [p[1], p[5], "="]
     else: p[0][p[2]] = [p[1], int(p[4])]
 def p_type(p):
     '''typ : INT
@@ -599,8 +602,7 @@ if __name__ == '__main__':
     stmt_include = "#include <stdio.h>\n"
     stmt_include2 = '#include "sengen1.h"\n'
     stmt_include3 = '#include "data.h"\n'
-    stmt_typedef = "typedef struct{ int vibhakti[20]; int vacana[20]; int linga[20]; int purusha[20]; unsigned char *subanta[20]; " \
-                "unsigned char *pratipadika[20]; unsigned char *erb[20];         /* End Removed Base */ " \
+    stmt_typedef = "typedef struct{unsigned char *pratipadika[20]; unsigned char *erb[20];         /* End Removed Base */ " \
                 "int wordNum[20]; int numofNouns;} SUBANTA_DATA;"
     stmt_var_decl_array = "unsigned char list[]={'ÈÞÏèÔÚÁèØ', '¤ÈÏÚÁèØ', 'ÄÛÆ', 'ÏÚÂèÏÛ', '¤ØåÏÚÂèÏ', '×ÈèÂÚØ', 'È³èÖ', 'ÌÚ×', '×¢ÔÂè×Ï'};"
     stmt_func_def_vibmenu_full = "int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean) { int yes=0,success=1;  while(1) { if((tvibptr->stype =='1' && strcmp(tvibptr->specf,'dative')==0 ) || tvibptr->stype =='5' || tvibptr->stype=='2'|| tvibptr->stype=='4') { /* Check for case where there is only a single meaning for ¸ÂÝÏèÂÜ ÔÛË³èÂÛ */ yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);  if(tvibptr->stype=='2' && tvibptr->matnoun !=1 ) { switch(tvibptr->spos) { case 0: if(tvibptr->semlinga==0) strcat(tvibptr->arthaword,'×Ú '); if(tvibptr->semlinga==1) strcat(tvibptr->arthaword,'×£ '); if(tvibptr->semlinga==2) strcat(tvibptr->arthaword,'ÂèÂ '); break; case 1: strcat(tvibptr->arthaword,'ÂÆèÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ '); break; case 2: strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ '); break; case 3: strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ '); break; case 4: strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ '); break; case 5: strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ '); break; } } if(tvibptr->stype == '2' || tvibptr->stype =='4' || tvibptr->stype=='5') success= 0;  } if(tvibptr->stype =='1' && (strcmpi(tvibptr->specf,'object')==0)) {        /* Check for case where there is only a single meaning for ÄèÔÛÂÜÍÚ ÔÛË³èÂÛ */ yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean); }   /* If not in above case following steps lead to menu display for    selection based on type of vibhakti */  if(tvibptr->stype =='1')  {  switch(tvibptr->spos)  { case 0: if(strcmpi(voice,'kartari') ==0) strcpy(tvibptr->arthaword,tvibptr->sword); if(strcmpi(voice,'karmani') ==0) { strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÂßÂÚÆÛÏÞÈ³ '); } break;  case 1: if(strcmpi(voice,'kartari') ==0) { strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ '); } if(strcmpi(voice,'karmani') ==0) { strcpy(tvibptr->arthaword,tvibptr->sword); } break;  case 2: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ '); break;  case 3: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ '); break;  case 4: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ '); break;  case 6: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'×ÌèÊÆèÅÛ '); break;  case 5: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ '); break; }  }  if (tvibptr->next != NULL) tvibptr=tvibptr->next;  else  break; } return success; }"
@@ -618,7 +620,7 @@ if __name__ == '__main__':
         case_var_stmt_pairs, typedef_vars = [{}], [{}]
         print("C statement: %s \nPython statement: %s" % (statement, main(pattern_star_slash.sub("*/;", statement)))) # */ to */;'''
 
-    f = codecs.open("VIBMENU.C", encoding="utf-8")
+    f = open("VIBMENU.C") #codecs.open("VIBMENU.C", encoding="utf-8")
     csource = f.readlines()
     f.close()
     statement_asis = pattern_crlf.sub("\n", " ".join(csource))

@@ -13,7 +13,7 @@ int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tv
 	{
 		if((tvibptr->stype =='1' && strcmp(tvibptr->specf,"dative")==0 ) || tvibptr->stype =='5' || tvibptr->stype=='2'|| tvibptr->stype=='4')
 		{
-		/* Check for case where there is only a single meaning for Â¸Ã‚ÃÃÃ¨Ã‚Ãœ Ã”Ã›Ã‹Â³Ã¨Ã‚Ã› */
+		/* Check for case where there is only a single meaning for ¸ÂİÏèÂÜ ÔÛË³èÂÛ */
 			yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);
 
 			if(tvibptr->stype=='2' && tvibptr->matnoun !=1 )
@@ -22,26 +22,26 @@ int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tv
 				{
 					case 0:
 						if(tvibptr->semlinga==0)
-							strcat(tvibptr->arthaword,"Ã—Ãš ");
+							strcat(tvibptr->arthaword,"×Ú ");
 						if(tvibptr->semlinga==1)
-							strcat(tvibptr->arthaword,"Ã—Â£ ");
+							strcat(tvibptr->arthaword,"×£ ");
 						if(tvibptr->semlinga==2)
-							strcat(tvibptr->arthaword,"Ã‚Ã¨Ã‚ ");
+							strcat(tvibptr->arthaword,"ÂèÂ ");
 						break;
 					case 1:
-						strcat(tvibptr->arthaword,"Ã‚Ã†Ã¨Ã†Ã›Ã–Ã¨Â¾Â³ÃÃ¨ÃŒÃ‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+						strcat(tvibptr->arthaword,"ÂÆèÆÛÖè¾³ÏèÌÂÚÆÛÏŞÈ³ ");
 						break;
 					case 2:
-						strcat(tvibptr->arthaword,"Ã†Ã›Ã–Ã¨Â¾Â³ÃÃÃ‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+						strcat(tvibptr->arthaword,"ÆÛÖè¾³ÏÁÂÚÆÛÏŞÈ³ ");
 						break;
 					case 3:
-						strcat(tvibptr->arthaword,"Ã†Ã›Ã–Ã¨Â¾Ã—ÃŒÃ¨ÃˆÃ¨ÃÃ„ÃšÃ†Ã‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+						strcat(tvibptr->arthaword,"ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏŞÈ³ ");
 						break;
 					case 4:
-						strcat(tvibptr->arthaword,"Ã†Ã›Ã–Ã¨Â¾ÃšÃˆÃšÃ„ÃšÃ†Ã‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+						strcat(tvibptr->arthaword,"ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏŞÈ³ ");
 						break;
 					case 5:
-						strcat(tvibptr->arthaword,"Ã†Ã›Ã–Ã¨Â¾ÃšÃ…Ã›Â³ÃÃÃ‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+						strcat(tvibptr->arthaword,"ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏŞÈ³ ");
 						break;
 				}
 			}
@@ -51,7 +51,7 @@ int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tv
 		}
 		if(tvibptr->stype =='1' && (strcmpi(tvibptr->specf,"object")==0))
 		{
-		       /* Check for case where there is only a single meaning for Ã„Ã¨Ã”Ã›Ã‚ÃœÃÃš Ã”Ã›Ã‹Â³Ã¨Ã‚Ã› */
+		       /* Check for case where there is only a single meaning for ÄèÔÛÂÜÍÚ ÔÛË³èÂÛ */
 			yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);
 		}
 
@@ -68,7 +68,7 @@ int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tv
 					if(strcmpi(voice,"karmani") ==0)
 					{
 						strcpy(tvibptr->arthaword,tvibptr->bword);
-						strcat(tvibptr->arthaword,"Ã†Ã›Ã–Ã¨Â¾Â³ÃÃ¨Ã‚ÃŸÃ‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+						strcat(tvibptr->arthaword,"ÆÛÖè¾³ÏèÂßÂÚÆÛÏŞÈ³ ");
 					}
 					break;
 
@@ -76,7 +76,7 @@ int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tv
 					if(strcmpi(voice,"kartari") ==0)
 					{
 						strcpy(tvibptr->arthaword,tvibptr->bword);
-						strcat(tvibptr->arthaword,"Ã†Ã›Ã–Ã¨Â¾Â³ÃÃ¨ÃŒÃ‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+						strcat(tvibptr->arthaword,"ÆÛÖè¾³ÏèÌÂÚÆÛÏŞÈ³ ");
 					}
 					if(strcmpi(voice,"karmani") ==0)
 					{
@@ -85,23 +85,23 @@ int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tv
 					break;
 				 case 2:
 					strcpy(tvibptr->arthaword,tvibptr->bword);
-					strcat(tvibptr->arthaword,"Ã†Ã›Ã–Ã¨Â¾Â³ÃÃÃ‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+					strcat(tvibptr->arthaword,"ÆÛÖè¾³ÏÁÂÚÆÛÏŞÈ³ ");
 					break;
 				 case 3:
 					strcpy(tvibptr->arthaword,tvibptr->bword);
-					strcat(tvibptr->arthaword,"Ã†Ã›Ã–Ã¨Â¾Ã—ÃŒÃ¨ÃˆÃ¨ÃÃ„ÃšÃ†Ã‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+					strcat(tvibptr->arthaword,"ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏŞÈ³ ");
 					break;
 				 case 4:
 					strcpy(tvibptr->arthaword,tvibptr->bword);
-					strcat(tvibptr->arthaword,"Ã†Ã›Ã–Ã¨Â¾ÃšÃˆÃšÃ„ÃšÃ†Ã‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+					strcat(tvibptr->arthaword,"ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏŞÈ³ ");
 					break;
 				 case 6:
 					strcpy(tvibptr->arthaword,tvibptr->bword);
-					strcat(tvibptr->arthaword,"Ã—ÃŒÃ¨ÃŠÃ†Ã¨Ã…Ã› ");
+					strcat(tvibptr->arthaword,"×ÌèÊÆèÅÛ ");
 					break;
 				 case 5:
 					strcpy(tvibptr->arthaword,tvibptr->bword);
-					strcat(tvibptr->arthaword,"Ã†Ã›Ã–Ã¨Â¾ÃšÃ…Ã›Â³ÃÃÃ‚ÃšÃ†Ã›ÃÃÃˆÂ³ ");
+					strcat(tvibptr->arthaword,"ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏŞÈ³ ");
 					break;
 			}
 		 }
