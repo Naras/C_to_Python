@@ -181,7 +181,7 @@ def p_statement_if_else(p):
     # p[0] = 'if ' + p[3].strip() + ': ' + p[5] + '\n else: ' + p[7]
     pat, itervar = re.compile('\s*!=\s*NULL'), p[5].split(" = ")[0]
     if not pat.search(p[3]): p[0] = 'if ' + pat.sub(" != None", p[3].strip()) + ': ' + p[5] + '\n else: ' + p[7]
-    else: p[0] = '\titer_' + itervar + ' = iter('  + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\tbreak;'
+    else: p[0] = '\titer_' + itervar + ' = iter('  + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\t\tbreak;'
 def p_statement_comparisons(p):
     '''comparisons : expression OR expression
                     | expression AND expression
@@ -628,7 +628,7 @@ if __name__ == '__main__':
     # Give the lexer some input
 
     # for statement in [stmt_comment, stmt_var_decl_initialized, stmt_var_decl_array, stmt_assignment, stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_func_def_complex1, stmt_func_def_complex2, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3,  stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22,  stmt_switch_case3, stmt_while, stmt_while_complex1, stmt_while_complex2, stmt_while_complex3, stmt_define, stmt_include, stmt_include2, stmt_include3, stmt_typedef_many, stmt_func_def_vibmenu_full]:
-    for statement in [stmt_func_decl_simple]:
+    for statement in [stmt_while_complex1]:
         case_var_stmt_pairs, typedef_vars = [{}], [{}]
         if not pattern_star_slash_semicolon.findall(statement): statement = pattern_star_slash.sub("*/;", statement)
         print("C statement: %s \nPython statement: %s" % (statement, main(statement))) # */ to */;
@@ -653,7 +653,7 @@ if __name__ == '__main__':
     # for statement in rest.split('\n'): print("C statement: %s \nPython statement: %s"%(statement, main(statement)))
     print("C statement: %s \nPython statement: %s"%(rest, main(rest)))'''
 
-    f = open("I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H")
+    '''f = open("I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H")
     csource = f.readlines()
     f.close()
     statement_asis = pattern_crlf.sub("\n", " ".join(csource))
@@ -667,4 +667,4 @@ if __name__ == '__main__':
     for statement in defines.split("\n"): include_statements.append(main(statement))
     print("C defines: %s \nPython inits: %s" % (defines, "\n".join(include_statements)))
     # exit(1)
-    print("C statement: %s \nPython statement: %s" % (rest, main(rest)))
+    print("C statement: %s \nPython statement: %s" % (rest, main(rest)))'''
