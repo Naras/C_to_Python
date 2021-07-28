@@ -5,7 +5,7 @@ c_grammar = r"""
 
     ?statement: single | multiple 
     ?single: expression | assign | if | if_else | empty | comment | var_declarations | function_declaration | while
-            | "break" -> statement_break | "continue" -> statement_continue | block
+            | "break" -> statement_break | "continue" -> statement_continue | block | switch 
         
     ?expression: term | literal | term_logical | function_invoke
     ?literal: /'.*?'/ | /".*?"/
@@ -37,7 +37,6 @@ c_grammar = r"""
     ?empty: (";")*
     ?condition: expression operator expression 
     ?operator: "==" -> eq | "!=" -> ne | ">=" -> ge | "<=" -> le | ">" -> gt | "<" -> lt
-    ?connector: "&&" -> andand | "||" -> oror
     ?negation: "!"
 
     ?comment: CPP_COMMENT -> comment_single_line | C_COMMENT -> comment_multi_line
@@ -59,6 +58,12 @@ c_grammar = r"""
     ?parameter: NAME -> parameter_simple | NAME "->" NAME -> parameter_pointer 
     
     ?while: "while" expression single -> statement_while
+    
+    ?switch: "switch" "(" switch_var ")" "{" [case+ | cases] "}"
+    ?switch_var: NAME | NAME "->" NAME -> pointer_var 
+    ?case: "case" value ":" multiple | "default" ":" multiple -> case_default
+    ?cases: ("case" value)+ ":" multiple
+    ?value: expression
    
     string : ESCAPED_STRING
     
@@ -114,13 +119,10 @@ class TreeToPython(Transformer):
     def le(self): return " <= "
     def gt(self): return " > "
     def lt(self): return " < "
-    def andand(self): return "and"
-    def oror(self): return "or"
-    def negation(self): return "not"
 
     def condition(self, exprLHS, operator, exprRHS): return str(exprLHS) + str(operator) + str(exprRHS)
     def statement_if(self, expression, statement):
-        return "if " + expression + ": \n\t" + statement
+        return "if " + expression + ": " + statement.replace("\n", "\n\t")
         # pat, itervar = re.compile('\s*!=\s*NULL'), statement.split(" = ")[0]
         # if not pat.search(expression): res = 'if ' + pat.sub(" != None", expression.strip()) + ': ' + statement
         # else: res = '\titer_' + itervar + ' = iter(' + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\tbreak;'
@@ -176,6 +178,22 @@ class TreeToPython(Transformer):
     def statement_break(self): return 'break'
     def statement_continue(self): return 'continue'
 
+    def switch(self, *args):
+        variable, statements = args[0], args[1:]
+        stmt, ifelif = "", "if "
+        for statement in statements:
+            for k, v in statement.items():
+                pre = ifelif + variable + " == " + str(k) + ":" if str(k) != "default" else "\nelse: "
+                stmt += pre + "\n\t" + "#<statement-case>" + str(v).replace("\n","\n\t").replace("break", "#break").replace("#<statement-multiple>{", "").replace("#}</statement-multiple>", "") + "#<\statement-case>"
+                ifelif = "\nelif "
+        return stmt
+    def case(self, expression, statement): return {str(expression):str(statement)}
+    def cases(self, *args):
+        expressions, statement = args[:-1], args[-1]
+        expression = "in [" + ", ".join([expr for expr in expressions]) + "]"
+        return {str(expression):str(statement)}
+    def case_default(self, statement): return {"default":str(statement)}
+
 c_parser = Lark(c_grammar, parser='earley', lexer='standard')
 def parse(x):
     return TreeToPython().transform(c_parser.parse(x))
@@ -194,6 +212,6 @@ if __name__ == '__main__':
     print(parse(preprocess("if(tvibptr->stype =='1' && strcmpi(tvibptr->specf,'object')==0){       /* Check for case where there is only a single meaning for ÄèÔÛÂÜÍÚ ÔÛË³èÂÛ */yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);}")))
     print(parse(preprocess('if(1){choice = rt->uy} a=b')))
     print(parse(preprocess('while(1){{choice = rt->uy} a=b}')))
-    print(parse(preprocess('while(1){if(temp->subinsen==0){Assignlingavib(drecord);break;}if(temp->next != NULL)temp=temp->next;else break;}')))
-    print(parse(preprocess(stmt_while_complex1)))
+    print(parse(preprocess(stmt_while)))
+    print(parse(preprocess(stmt_while_complex2)))
 
