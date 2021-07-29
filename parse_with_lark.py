@@ -5,7 +5,7 @@ c_grammar = r"""
 
     ?statement: single | multiple 
     ?single: expression | assign | if | if_else | empty | comment | var_declarations | function_declaration | while
-            | "break" -> statement_break | "continue" -> statement_continue | block | switch 
+            | "break" -> statement_break | "continue" -> statement_continue | block | switch
         
     ?expression: term | literal | term_logical | function_invoke
     ?literal: /'.*?'/ | /".*?"/
@@ -59,11 +59,11 @@ c_grammar = r"""
     
     ?while: "while" expression single -> statement_while
     
-    ?switch: "switch" "(" switch_var ")" "{" [case+ | cases] "}"
+    ?switch: "switch" "(" switch_var ")" "{" (cases | case)+ "}"
     ?switch_var: NAME | NAME "->" NAME -> pointer_var 
     ?case: "case" value ":" multiple | "default" ":" multiple -> case_default
-    ?cases: ("case" value)+ ":" multiple
-    ?value: expression
+    ?cases: "case" value ":" ("case" value ":")+ multiple -> cases 
+    ?value: INT | FLOAT | literal
    
     string : ESCAPED_STRING
     
@@ -183,14 +183,14 @@ class TreeToPython(Transformer):
         stmt, ifelif = "", "if "
         for statement in statements:
             for k, v in statement.items():
-                pre = ifelif + variable + " == " + str(k) + ":" if str(k) != "default" else "\nelse: "
+                pre = ifelif + variable + str(k) + ":" if str(k) != "default" else "\nelse: "
                 stmt += pre + "\n\t" + "#<statement-case>" + str(v).replace("\n","\n\t").replace("break", "#break").replace("#<statement-multiple>{", "").replace("#}</statement-multiple>", "") + "#<\statement-case>"
                 ifelif = "\nelif "
         return stmt
-    def case(self, expression, statement): return {str(expression):str(statement)}
+    def case(self, expression, statement): return {str(" == " + expression):str(statement)}
     def cases(self, *args):
         expressions, statement = args[:-1], args[-1]
-        expression = "in [" + ", ".join([expr for expr in expressions]) + "]"
+        expression = " in [" + ", ".join([expr for expr in expressions]) + "]"
         return {str(expression):str(statement)}
     def case_default(self, statement): return {"default":str(statement)}
 
@@ -201,17 +201,13 @@ def pretty(x):
     return c_parser.parse(x).pretty()
 def preprocess(stmt):
     return pattern_star_slash.sub("*/;", pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 == \2", stmt))))
+def prnt(stmt): print("C statement: %s \nPython statement: %s" % (stmt, parse(preprocess(stmt))))
 if __name__ == '__main__':
     for stmt in ["a = 1.1 * (2 - 1)", "1+a*-3", "if (a != 2 || b > 4) c = 3+(4-9)",
                  "if (a != 2 || b > 4) {c = 3+4; a=d} else {a = 1.1+2;h = 89;};",
              "// comment comm ent", "/* comment \n comm ent */", "int gcd(unsigned char u, int v){a=b;c=d}",
                  'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) {choice = rt->uy; k=9} else {blah=89;blech=iu}',
-                 'if(aif==only) {choice = rt->uy};', "int yes=0,success=1;char t='ty'"]: #, stmt_var_decl_initialized, stmt_var_decl_array
-        print(parse(preprocess(stmt)))
-    print(parse(preprocess('if(a==0 && a == b || strcmpi(temp->Type,"Noun")==0) {choice = rt->uy; k=9} else {blah=89;blech=iu}')))
-    print(parse(preprocess("if(tvibptr->stype =='1' && strcmpi(tvibptr->specf,'object')==0){       /* Check for case where there is only a single meaning for ÄèÔÛÂÜÍÚ ÔÛË³èÂÛ */yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);}")))
-    print(parse(preprocess('if(1){choice = rt->uy} a=b')))
-    print(parse(preprocess('while(1){{choice = rt->uy} a=b}')))
-    print(parse(preprocess(stmt_while)))
-    print(parse(preprocess(stmt_while_complex2)))
+                 'if(aif==only) {choice = rt->uy};', "int yes=0,success=1;char t='ty'",
+                 stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_var_decl_initialized, stmt_var_decl_array, stmt_while, stmt_switch_case]:
+        prnt(stmt)
 
