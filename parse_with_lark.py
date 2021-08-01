@@ -1,18 +1,19 @@
 from lark import Lark, Transformer, v_args
 from statement_samples import *
+
 c_grammar = r"""
     ?start: statement
 
     ?statement: single | multiple 
     ?single: expression | assign | if | if_else | empty | comment | var_declarations | function_declaration | while
-            | "break" -> statement_break | "continue" -> statement_continue | block | switch
-        
+            | "break" -> statement_break | "continue" -> statement_continue | block | switch | typedef | "return" expression -> statement_return
+
     ?expression: term | literal | term_logical | function_invoke
     ?literal: /'.*?'/ | /".*?"/
 
     ?term: factor | term plusminus factor   -> addsub
     ?plusminus: "+" -> plus | "-" -> minus
-    
+
     ?factor: atom | factor muldivmod atom  -> muldivmodulo
     ?muldivmod: "*" -> mul | "/" -> div | "%" -> mod
 
@@ -25,11 +26,11 @@ c_grammar = r"""
     ?term_logical:  factor_logical | term_logical "||" factor_logical   -> logical_or
     ?factor_logical: atom_logical | factor_logical "&&" atom_logical -> logical_and
     ?atom_logical: "True" -> value_true | "False" -> value_false | condition | "(" term_logical ")" -> paranthesize | "!" atom_logical -> logical_neg
-    
+
     ?assign: NAME "=" expression -> assign
          | "*" NAME  "=" expression        -> pointer_assign
          | NAME "->" NAME "=" expression    -> pointer_var_assign
-     
+
     ?if: "if" "(" expression ")" single -> statement_if 
     ?if_else: "if" "(" expression ")" [single ";" | block] "else" single -> statement_if_else
     ?block: "{" single ( [ ";" | block] single)*  "}"
@@ -40,33 +41,38 @@ c_grammar = r"""
     ?negation: "!"
 
     ?comment: CPP_COMMENT -> comment_single_line | C_COMMENT -> comment_multi_line
-    
+
     ?var_declarations: typ var_declaration ("," var_declaration)* 
     ?typ: "int" -> type_int | "float" -> type_float | "double" -> type_float | "long" -> type_float
-                    | "unsigned"? "char" -> type_char | "file" -> type_file
+                    | "unsigned"? "char" -> type_char | "file" -> type_file | NAME -> type_user
     ?var_declaration: NAME ("," NAME)*  -> var_declaration_simple
                         | NAME ("," NAME)* "=" expression -> var_declaration_initialized
-                        | NAME "[" "]" "=" value_list -> var_declaration_array_initialized
+                        | NAME "[]" "=" value_list -> var_declaration_array_initialized
     ?value_list: "{" expression ("," expression)* "}"
-    
-    ?function_declaration: typ function_signature  [statement | block]
+
+    ?function_declaration: typ function_signature single
     ?function_signature: NAME "()" -> signature_noargs | NAME "(" arg_declaration ("," arg_declaration)* ")" -> signature_args
-    ?arg_declaration:  typ NAME
-    
+    ?arg_declaration:  typ NAME | typ "*" NAME | typ NAME "[]"
+
     ?function_invoke: NAME "(" parameter_list ")" 
     ?parameter_list: parameter ("," parameter)*
-    ?parameter: NAME -> parameter_simple | NAME "->" NAME -> parameter_pointer 
-    
+    ?parameter: [expression | "*" NAME] -> parameter_simple | NAME "->" NAME -> parameter_pointer
+
     ?while: "while" expression single -> statement_while
-    
+
     ?switch: "switch" "(" switch_var ")" "{" (cases | case)+ "}"
     ?switch_var: NAME | NAME "->" NAME -> pointer_var 
     ?case: "case" value ":" multiple | "default" ":" multiple -> case_default
     ?cases: "case" value ":" ("case" value ":")+ multiple -> cases 
     ?value: INT | FLOAT | literal
-   
+
+    ?typedef: "typedef" "struct" "{" (declaration delimiter)+ "}" NAME ";"
+    ?declaration: typ varname -> typedef_plain | typ varname "=" expression -> typedef_assign | typ varname "[" INT "]" -> typedef_array
+    ?varname: NAME | "*" NAME
+    ?delimiter: ";"+ (C_COMMENT  ";"* | CPP_COMMENT)?
+
     string : ESCAPED_STRING
-    
+
     %import common.CNAME -> NAME
     %import common.ESCAPED_STRING
     %import common.INT
@@ -82,6 +88,7 @@ c_grammar = r"""
 class TreeToPython(Transformer):
     def __init__(self):
         self.vars = {}
+
     # number = float
     def string(self, s):
         return s[1:-1].replace('\\"', '"')
@@ -119,7 +126,6 @@ class TreeToPython(Transformer):
     def le(self): return " <= "
     def gt(self): return " > "
     def lt(self): return " < "
-
     def condition(self, exprLHS, operator, exprRHS): return str(exprLHS) + str(operator) + str(exprRHS)
     def statement_if(self, expression, statement):
         return "if " + expression + ": " + statement.replace("\n", "\n\t")
@@ -134,12 +140,11 @@ class TreeToPython(Transformer):
         else: res = '\titer_' + itervar + ' = iter(' + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\t\tbreak;'
         return "\n" + res
     def block(self, *args): return '#<statement-block>{\n\t' + '\n\t'.join([str(arg) for arg in args if arg != '']) + ' #}</statement-block>'
-    def multiple(self, *args): return '#<statement-multiple>{\n' + '\n'.join([str(arg) for arg in args if arg != '']) + ' #}</statement-multiple>'
+    def multiple(self, *args): return '#<statement-multiple>{\n' + '\n'.join( [str(arg) for arg in args if arg != '']) + ' #}</statement-multiple>'
     def single(self, arg): return str(arg)
     def empty(self): return ''
     def comment_single_line(self, arg): return '# ' + str(arg)[2:]
     def comment_multi_line(self, arg): return "\n'''" + str(arg)[2:-2].strip() + "'''"
-
     def var_declarations(self, *args):
         lst = ''
         typ = args[0]
@@ -150,64 +155,82 @@ class TreeToPython(Transformer):
                 if k[0] == "[": typ = "List[" + typ + "]"
                 lst += v + " = " + k + "\t# type " + typ + "\n"
         return lst
-    def var_declaration_simple(self, *args): return {'None':[str(arg) for arg in args]}
-    def var_declaration_initialized(self,*args):
+    def var_declaration_simple(self, *args): return {'None': [str(arg) for arg in args]}
+    def var_declaration_initialized(self, *args):
         var, val = args[:-1], args[-1]
-        return {str(val):var}
+        return {str(val): var}
     def var_declaration_array(self, *args): return ",".join([str(arg) for arg in args])[1:]
-    def var_declaration_array_initialized(self, var, value_list):
-        return {value_list:var}
+    def var_declaration_array_initialized(self, var, value_list): return {value_list: var}
     def value_list(self, *args): return "[" + ", ".join([arg for arg in args]) + "]"
     def type_int(self): return "int"
     def type_float(self): return "float"
     def type_char(self): return "str"
     def type_file(self): return "TextIO"
+    def type_user(self, typ): return str(typ)
     def literal(self, arg): return arg[1:-1]
-
     def function_declaration(self, typ, args, statement): return "def " + str(args[0]) + "(" + ', '.join(args[1:]) + ") -> " + typ + ": " + statement
     def signature_noargs(self, name): return [name]
     def signature_args(self, *args): return [str(arg) for arg in args]
     def arg_declaration(self, typ, name): return str(name) + ' ' + str(typ)
-
     def function_invoke(self, name, parameters): return str(name) + "(" + str(parameters) + ")"
     def parameter_list(self, *args): return ", ".join([str(arg) for arg in args])
     def parameter_simple(self, name): return str(name)
     def parameter_pointer(self, pointer, name): return str(pointer) + "." + str(name)
-
     def statement_while(self, expression, statement): return "while " + expression + ": \n\t" + statement
     def statement_break(self): return 'break'
     def statement_continue(self): return 'continue'
-
+    def statement_return(self, expression): return 'return ' + str(expression)
     def switch(self, *args):
         variable, statements = args[0], args[1:]
         stmt, ifelif = "", "if "
         for statement in statements:
             for k, v in statement.items():
                 pre = ifelif + variable + str(k) + ":" if str(k) != "default" else "\nelse: "
-                stmt += pre + "\n\t" + "#<statement-case>" + str(v).replace("\n","\n\t").replace("break", "#break").replace("#<statement-multiple>{", "").replace("#}</statement-multiple>", "") + "#<\statement-case>"
+                stmt += pre + "\n\t" + "#<statement-case>" + str(v).replace("\n", "\n\t").replace("break", "#break").replace("#<statement-multiple>{", "").replace("#}</statement-multiple>", "") + "#<\statement-case>"
                 ifelif = "\nelif "
         return stmt
-    def case(self, expression, statement): return {str(" == " + expression):str(statement)}
+    def case(self, expression, statement): return {str(" == " + expression): str(statement)}
     def cases(self, *args):
         expressions, statement = args[:-1], args[-1]
         expression = " in [" + ", ".join([expr for expr in expressions]) + "]"
-        return {str(expression):str(statement)}
-    def case_default(self, statement): return {"default":str(statement)}
+        return {str(expression): str(statement)}
+    def case_default(self, statement): return {"default": str(statement)}
+    def typedef_plain(self, typ, name):  return {str(name): [str(typ), 0]}
+    def typedef_assign(self, typ, name, expression): return {str(name): [typ, expression, " = "]}
+    def typedef_array(self, typ, name, num): return {str(name): [typ, int(num)]}
+    def typedef(self, *typedef_vars):
+        body_init, body_get, name = "", "", str(typedef_vars[-1]).strip()
+        typedef_vars = [var for var in typedef_vars if isinstance(var, dict)]  # eliminate delimiters
+        pair = typedef_vars[-2]
+        for k, v in pair.items(): dimname = "[self." + str(k) + "]"
+        for pair in typedef_vars[:-2]:
+            for k, v in pair.items():
+                val = "None" if len(v) < 3 else str(v[2])
+                if v[1] == 0: body_init += "\n\t\t\tself." + str(k) + " = " + val + "  # type: " + str(v[0])
+                else: body_init += "\n\t\t\tself." + str(k) + " = [" + val + "] * " + str(v[1]) + "  # type: List[" + str( v[0]) + "]"
+                body_get += "'" + str(k) + "':self." + str(k) + dimname + ", "
+        pair = typedef_vars[-2]
+        for k, v in pair.items():
+            body_init += "\n\t\t\tself." + str(k) + " = None  # type: " + str(v[0])
+            body_get += "'" + str(k) + "':self." + str(k)
+        return "\nclass " + name + ":\n\t\tdef __init__(self):" + body_init + "\n\t\tdef get(self):\n\t\t\treturn {" + body_get + "}" + "\n\t\tdef __str__(self):\n\t\t\treturn json.dumps(self.get())"
 
 c_parser = Lark(c_grammar, parser='earley', lexer='standard')
-def parse(x):
-    return TreeToPython().transform(c_parser.parse(x))
-def pretty(x):
-    return c_parser.parse(x).pretty()
-def preprocess(stmt):
-    return pattern_star_slash.sub("*/;", pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 == \2", stmt))))
+
+def parse(x): return TreeToPython().transform(c_parser.parse(x))
+def pretty(x): return c_parser.parse(x).pretty()
+def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2",pattern_c_strcmp.sub(r"\1 == \2", stmt))))
 def prnt(stmt): print("C statement: %s \nPython statement: %s" % (stmt, parse(preprocess(stmt))))
+
 if __name__ == '__main__':
-    for stmt in ["a = 1.1 * (2 - 1)", "1+a*-3", "if (a != 2 || b > 4) c = 3+(4-9)",
-                 "if (a != 2 || b > 4) {c = 3+4; a=d} else {a = 1.1+2;h = 89;};",
-             "// comment comm ent", "/* comment \n comm ent */", "int gcd(unsigned char u, int v){a=b;c=d}",
-                 'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) {choice = rt->uy; k=9} else {blah=89;blech=iu}',
-                 'if(aif==only) {choice = rt->uy};', "int yes=0,success=1;char t='ty'",
-                 stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_var_decl_initialized, stmt_var_decl_array, stmt_while, stmt_switch_case]:
-        prnt(stmt)
+    # for stmt in ["a = 1.1 * (2 - 1)", "1+a*-3", "if (a != 2 || b > 4) c = 3+(4-9)",
+    #              "if (a != 2 || b > 4) {c = 3+4; a=d} else {a = 1.1+2;h = 89;};",
+    #          "// comment comm ent", "/* comment \n comm ent */", "int gcd(unsigned char u, int v){a=b;c=d}",
+    #              'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) {choice = rt->uy; k=9} else {blah=89;blech=iu}',
+    #              'if(aif==only) {choice = rt->uy};', "int yes=0,success=1;char t='ty'"]: prnt(stmt)
+    for stmt in [stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_var_decl_initialized, stmt_var_decl_array,
+                 stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_func_def_complex1, stmt_func_def_complex2,
+                 stmt_while, stmt_switch_case, stmt_typedef, stmt_typedef_many]: prnt(stmt)
+    # prnt(stmt_func_def_complex1)
+    # for stmt in samples: prnt(stmt)
 
