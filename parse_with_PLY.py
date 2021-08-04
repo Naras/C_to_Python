@@ -155,11 +155,15 @@ def p_statement_empty(p):
     'statement : empty'
     p[0] = ''
 def p_statement_block(p):
-    'statement : LEFTBRACE statement RIGHTBRACE'
+    'statement : block'
+    p[0] = p[1]
+def p_block(p):
+    'block : LEFTBRACE statement RIGHTBRACE'
     p[0] = '#<statement-block {>\n\t' + p[2].replace("\n", "\n\t") + "\n\t#}</statement-block>"
 def p_statement_multiple(p):
-    'statement : statement SEMICOLON statement'
-    p[0] = p[1] + '\n' + p[3] if p[3] != None else p[1]
+    '''statement : statement SEMICOLON statement
+                    | block statement'''
+    p[0] = p[1] + p[2] if len(p) == 3 else p[1] if p[3] == None else p[1] + '\n' + p[3]
 def p_statement_assign(p):
     'statement : name ASSIGN expression'
     p[0] = p[1] + ' = ' + str(p[3])
@@ -401,7 +405,7 @@ def p_statement_while(p):
     'statement : WHILE LPAREN expression RPAREN statement'
     p[0] = ("while " + p[3] + ":" + p[5]).replace("NULL", "None")
 def p_statement_typedef(p):
-    'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE SEMICOLON name'  # necessary evil, semicolon after rightbrace
+    'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE name'
     body_init, body_get = "", ""
     pair = typedef_vars[-1]
     for k, v in pair.items(): dimname = "[self." + k + "]"
@@ -417,7 +421,7 @@ def p_statement_typedef(p):
     for k, v in pair.items():
         body_init += "\n\t\t\tself." + k + " = None  # type: " + v[0]
         body_get += "'" + k + "':self." + k
-    p[0] = "\nclass " + p[7].strip() + ":\n\t\tdef __init__(self):" + body_init + "\n\t\tdef get(self):\n\t\t\treturn {" + body_get + "}" + "\n\t\tdef __str__(self):\n\t\t\treturn json.dumps(self.get())"
+    p[0] = "\nclass " + p[6].strip() + ":\n\t\tdef __init__(self):" + body_init + "\n\t\tdef get(self):\n\t\t\treturn {" + body_get + "}" + "\n\t\tdef __str__(self):\n\t\t\treturn json.dumps(self.get())"
 def p_type_declarations(p):
     '''declarations : declarations declaration statement_delimiter
                         | declaration statement_delimiter'''
@@ -471,7 +475,7 @@ def p_error(p):
     # Build the parser
 
 def main(statement_asis):
-    statement = pattern_tabs.sub("", pattern_spaces_2_or_more.sub(r" ", statement_asis)).replace("}","};")  # necessary evil, to bypass syntax error in switch/case with {} not followed by ;
+    statement = pattern_tabs.sub("", pattern_spaces_2_or_more.sub(r" ", statement_asis))
     # print('before lexing/parsing', statement[:-1])
     lexer.input(statement)
     # Tokenize
@@ -522,9 +526,9 @@ if __name__ == '__main__':
     for statement in includes.split("\n"): include_statements.append(main(statement))
     print("C includes: %s \nPython imports: %s"%(includes, "\n".join(include_statements)))
     # for statement in rest.split('\n'): print("C statement: %s \nPython statement: %s"%(statement, main(statement)))
-    print("C statement: %s \nPython statement: %s"%(rest, main(rest)))'''
-
-    '''f = open("I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H")
+    print("C statement: %s \nPython statement: %s"%(rest, main(rest)))
+    
+    f = open("I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H")
     csource = f.readlines()
     f.close()
     statement_asis = pattern_crlf.sub("\n", " ".join(csource))
