@@ -6,7 +6,8 @@ c_grammar = r"""
 
     ?statement: single | multiple 
     ?single: expression | assign | if | if_else | empty | comment | var_declarations | function_declaration | while
-            | "break" -> statement_break | "continue" -> statement_continue | block | switch | typedef | "return" expression -> statement_return
+            | "break" -> statement_break | "continue" -> statement_continue | block | switch | typedef 
+            | "return" expression -> statement_return | "#include" filename -> statement_include | "#define" NAME defineval -> statement_define
 
     ?expression: term | literal | term_logical | function_invoke
     ?literal: /'.*?'/ | /".*?"/
@@ -70,6 +71,9 @@ c_grammar = r"""
     ?declaration: typ varname -> typedef_plain | typ varname "=" expression -> typedef_assign | typ varname "[" INT "]" -> typedef_array
     ?varname: NAME | "*" NAME
     ?delimiter: ";"+ (C_COMMENT  ";"* | CPP_COMMENT)?
+    
+    ?filename: "<" NAME ".h" ">" | literal
+    ?defineval: INT | literal
 
     string : ESCAPED_STRING
 
@@ -136,11 +140,11 @@ class TreeToPython(Transformer):
     def statement_if_else(self, expression, statement_if, statement_else):
         # return "if " + expression + ": " + statement_if + "\nelse: " + statement_else
         pat, itervar = re.compile('\s*!=\s*NULL'), statement_if.split(" = ")[0]
-        if not pat.search(expression): res = 'if ' + pat.sub(" != None", expression.strip()) + ':' + statement_if + "\nelse: " + statement_else
+        if not pat.search(expression): res = 'if ' + pat.sub(" != None", expression.strip()) + ':' + statement_if.replace("\n", "\n\t") + "\nelse: " + statement_else.replace("\n", "\n\t")
         else: res = '\titer_' + itervar + ' = iter(' + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\t\tbreak;'
         return "\n" + res
     def block(self, *args): return '#<statement-block>{\n\t' + '\n\t'.join([str(arg) for arg in args if arg != '']) + ' #}</statement-block>'
-    def multiple(self, *args): return '#<statement-multiple>{\n' + '\n'.join( [str(arg) for arg in args if arg != '']) + ' #}</statement-multiple>'
+    def multiple(self, *args): return '#<statement-multiple>{\n' + '\n'.join( [str(arg) for arg in args if arg != ''])  + ' #}</statement-multiple>'
     def single(self, arg): return str(arg)
     def empty(self): return ''
     def comment_single_line(self, arg): return '# ' + str(arg)[2:]
@@ -168,7 +172,7 @@ class TreeToPython(Transformer):
     def type_file(self): return "TextIO"
     def type_user(self, typ): return str(typ)
     def literal(self, arg): return arg[1:-1]
-    def function_declaration(self, typ, args, statement): return "def " + str(args[0]) + "(" + ', '.join(args[1:]) + ") -> " + typ + ": " + statement
+    def function_declaration(self, typ, args, statement): return "def " + str(args[0]) + "(" + ', '.join(args[1:]) + ") -> " + typ + ": " + statement.replace("\n", "\n\t")
     def signature_noargs(self, name): return [name]
     def signature_args(self, *args): return [str(arg) for arg in args]
     def arg_declaration(self, typ, name): return str(name) + ' ' + str(typ)
@@ -176,7 +180,7 @@ class TreeToPython(Transformer):
     def parameter_list(self, *args): return ", ".join([str(arg) for arg in args])
     def parameter_simple(self, name): return str(name)
     def parameter_pointer(self, pointer, name): return str(pointer) + "." + str(name)
-    def statement_while(self, expression, statement): return "while " + expression + ": \n\t" + statement
+    def statement_while(self, expression, statement): return "while " + expression + ": \n\t" + statement.replace("\n", "\n\t")
     def statement_break(self): return 'break'
     def statement_continue(self): return 'continue'
     def statement_return(self, expression): return 'return ' + str(expression)
@@ -214,23 +218,51 @@ class TreeToPython(Transformer):
             body_init += "\n\t\t\tself." + str(k) + " = None  # type: " + str(v[0])
             body_get += "'" + str(k) + "':self." + str(k)
         return "\nclass " + name + ":\n\t\tdef __init__(self):" + body_init + "\n\t\tdef get(self):\n\t\t\treturn {" + body_get + "}" + "\n\t\tdef __str__(self):\n\t\t\treturn json.dumps(self.get())"
+    def statement_include(self, filename):
+        filename = str(filename).replace('"','').replace(".h", "")
+        return "import " + filename + ".py" + "\t#include " + filename + ".h"
+    def statement_define(self, var, val): return str(var) + " = " + str(val)
 
 c_parser = Lark(c_grammar, parser='earley', lexer='standard')
 
 def parse(x): return TreeToPython().transform(c_parser.parse(x))
 def pretty(x): return c_parser.parse(x).pretty()
 def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2",pattern_c_strcmp.sub(r"\1 == \2", stmt))))
-def prnt(stmt): print("C statement: %s \nPython statement: %s" % (stmt, parse(preprocess(stmt))))
+def prnt(stmt): print("C statement: %s \nPython statement:\n %s" % (stmt, parse(preprocess(stmt))))
 
 if __name__ == '__main__':
-    # for stmt in ["a = 1.1 * (2 - 1)", "1+a*-3", "if (a != 2 || b > 4) c = 3+(4-9)",
-    #              "if (a != 2 || b > 4) {c = 3+4; a=d} else {a = 1.1+2;h = 89;};",
-    #          "// comment comm ent", "/* comment \n comm ent */", "int gcd(unsigned char u, int v){a=b;c=d}",
-    #              'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) {choice = rt->uy; k=9} else {blah=89;blech=iu}',
-    #              'if(aif==only) {choice = rt->uy};', "int yes=0,success=1;char t='ty'"]: prnt(stmt)
-    for stmt in [stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_var_decl_initialized, stmt_var_decl_array,
-                 stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_func_def_complex1, stmt_func_def_complex2,
-                 stmt_while, stmt_switch_case, stmt_typedef, stmt_typedef_many]: prnt(stmt)
-    # prnt(stmt_func_def_complex1)
-    # for stmt in samples: prnt(stmt)
+    for stmt in samples: prnt(stmt)
 
+    '''f = open("VIBMENU.C") #codecs.open("VIBMENU.C", encoding="utf-8")
+    csource = f.readlines()
+    f.close()
+    statement_asis = pattern_crlf.sub("\n", " ".join(csource))
+    includes = '\n '.join(["#include" + p for p in pattern_include.findall(statement_asis)])
+    # print("includes %s\nasis %s"%(includes, statement_asis))
+    # print(statement_asis, "\nincludes->", includes, pattern_nl.search(statement_asis))
+    # for match in pattern_not_include.findall(statement_asis, re.M): print(match)
+    splits = statement_asis.split(includes)
+    rest = pattern_crlf.sub("\n", splits[1])  # crlf to lf, */ to */; else statement boundary not recognized :-(
+    rest = pattern_star_slash.sub("*/;", rest)
+    # print("includes \n%s\nrest %s"%(includes, rest))
+    # exit(1)
+    include_statements = []
+    for statement in includes.split("\n"): include_statements.append(parse(preprocess(statement)))
+    print("C includes:\n %s \nPython imports:\n %s"%(includes, "\n".join(include_statements)))
+    # for statement in rest.split('\n'): print("C statement: %s \nPython statement: %s"%(statement, main(statement)))
+    print("C statement: %s \nPython statement:\n %s"%(rest, parse(preprocess(rest))))
+    f = open("I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H")
+    csource = f.readlines()
+    f.close()
+    statement_asis = pattern_crlf.sub("\n", " ".join(csource))
+    defines = '\n '.join(["#define" + p for p in pattern_define.findall(statement_asis)])
+    # print("includes %s\nasis %s"%(defines, statement_asis))
+    # exit(1)
+    splits = statement_asis.split(defines)
+    rest = pattern_crlf.sub("\n", splits[1])
+    rest = pattern_star_slash.sub("*/;", rest)
+    define_statements = []
+    for statement in defines.split("\n"): define_statements.append(parse(preprocess(statement)))
+    print("C defines: %s \nPython inits: %s" % (defines, "\n".join(define_statements)))
+    # exit(1)
+    print("C statement: %s \nPython statement: %s" % (rest, parse(preprocess(rest))))'''
