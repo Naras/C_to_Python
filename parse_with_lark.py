@@ -45,7 +45,7 @@ c_grammar = r"""
 
     ?var_declarations: typ var_declaration ("," var_declaration)* 
     ?typ: "int" -> type_int | "float" -> type_float | "double" -> type_float | "long" -> type_float
-                    | "unsigned"? "char" -> type_char | "file" -> type_file | NAME -> type_user
+                    | "unsigned"? "char" -> type_char | "FILE" -> type_file | NAME -> type_user
     ?var_declaration: NAME ("," NAME)*  -> var_declaration_simple
                         | NAME ("," NAME)* "=" expression -> var_declaration_initialized
                         | NAME "[]" "=" value_list -> var_declaration_array_initialized
@@ -143,8 +143,10 @@ class TreeToPython(Transformer):
         if not pat.search(expression): res = 'if ' + pat.sub(" != None", expression.strip()) + ':' + statement_if.replace("\n", "\n\t") + "\nelse: " + statement_else.replace("\n", "\n\t")
         else: res = '\titer_' + itervar + ' = iter(' + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\t\tbreak;'
         return "\n" + res
-    def block(self, *args): return '#<statement-block>{\n\t' + '\n\t'.join([str(arg) for arg in args if arg != '']) + ' #}</statement-block>'
-    def multiple(self, *args): return '#<statement-multiple>{\n' + '\n'.join( [str(arg) for arg in args if arg != ''])  + ' #}</statement-multiple>'
+    def block(self, *args): return '#<statement-block>{\n\t' + '\n\t'.join([str(arg).replace("\n", "\n\t") for arg in args if arg.strip() not in ['', '\n', '\n\t']]) + ' #}</statement-block>'
+    def multiple(self, *args):
+        # return '#<statement-multiple>{\n' + '\n'.join( [str(arg) for arg in args if arg != ''])  + ' #}</statement-multiple>'
+        return '\n'.join([str(arg) for arg in args if arg != ''])
     def single(self, arg): return str(arg)
     def empty(self): return ''
     def comment_single_line(self, arg): return '# ' + str(arg)[2:]
@@ -172,7 +174,7 @@ class TreeToPython(Transformer):
     def type_file(self): return "TextIO"
     def type_user(self, typ): return str(typ)
     def literal(self, arg): return arg[1:-1]
-    def function_declaration(self, typ, args, statement): return "def " + str(args[0]) + "(" + ', '.join(args[1:]) + ") -> " + typ + ": " + statement.replace("\n", "\n\t")
+    def function_declaration(self, typ, args, statement): return "def " + str(args[0]) + "(" + ', '.join(args[1:]) + ") -> " + typ + ": " + statement.replace("\n", "\n\t") # .replace('\n\t\t\n\t\t', '\n\t\t').replace('\n\t\n\t', '\n\t') , '\n\t') re.sub('\n(\t)*\n(\t)*', '\n\1', statement)
     def signature_noargs(self, name): return [name]
     def signature_args(self, *args): return [str(arg) for arg in args]
     def arg_declaration(self, typ, name): return str(name) + ' ' + str(typ)
@@ -190,7 +192,7 @@ class TreeToPython(Transformer):
         for statement in statements:
             for k, v in statement.items():
                 pre = ifelif + variable + str(k) + ":" if str(k) != "default" else "\nelse: "
-                stmt += pre + "\n\t" + "#<statement-case>" + str(v).replace("\n", "\n\t").replace("break", "#break").replace("#<statement-multiple>{", "").replace("#}</statement-multiple>", "") + "#<\statement-case>"
+                stmt += pre + "\n\t" + "#<statement-case>\n\t" + str(v).replace("\n", "\n\t").replace("break", "#break").replace("#<statement-multiple>{", "").replace("#}</statement-multiple>", "") + "#<\statement-case>"
                 ifelif = "\nelif "
         return stmt
     def case(self, expression, statement): return {str(" == " + expression): str(statement)}
@@ -205,15 +207,15 @@ class TreeToPython(Transformer):
     def typedef(self, *typedef_vars):
         body_init, body_get, name = "", "", str(typedef_vars[-1]).strip()
         typedef_vars = [var for var in typedef_vars if isinstance(var, dict)]  # eliminate delimiters
-        pair = typedef_vars[-2]
+        pair = typedef_vars[-1]
         for k, v in pair.items(): dimname = "[self." + str(k) + "]"
-        for pair in typedef_vars[:-2]:
+        for pair in typedef_vars[:-1]:
             for k, v in pair.items():
                 val = "None" if len(v) < 3 else str(v[2])
                 if v[1] == 0: body_init += "\n\t\t\tself." + str(k) + " = " + val + "  # type: " + str(v[0])
                 else: body_init += "\n\t\t\tself." + str(k) + " = [" + val + "] * " + str(v[1]) + "  # type: List[" + str( v[0]) + "]"
                 body_get += "'" + str(k) + "':self." + str(k) + dimname + ", "
-        pair = typedef_vars[-2]
+        pair = typedef_vars[-1]
         for k, v in pair.items():
             body_init += "\n\t\t\tself." + str(k) + " = None  # type: " + str(v[0])
             body_get += "'" + str(k) + "':self." + str(k)
@@ -228,7 +230,7 @@ c_parser = Lark(c_grammar, parser='earley', lexer='standard')
 def parse(x): return TreeToPython().transform(c_parser.parse(x))
 def pretty(x): return c_parser.parse(x).pretty()
 def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2",pattern_c_strcmp.sub(r"\1 == \2", stmt))))
-def prnt(stmt): print("C statement: %s \nPython statement:\n %s" % (stmt, parse(preprocess(stmt))))
+def prnt(stmt): print("C statement: %s \nPython statement:\n%s" % (stmt, parse(preprocess(stmt))))
 
 if __name__ == '__main__':
     for stmt in samples: prnt(stmt)
@@ -250,7 +252,7 @@ if __name__ == '__main__':
     for statement in includes.split("\n"): include_statements.append(parse(preprocess(statement)))
     print("C includes:\n %s \nPython imports:\n %s"%(includes, "\n".join(include_statements)))
     # for statement in rest.split('\n'): print("C statement: %s \nPython statement: %s"%(statement, main(statement)))
-    print("C statement: %s \nPython statement:\n %s"%(rest, parse(preprocess(rest))))
+    print("C statement: %s \nPython statement:\n%s"%(rest, parse(preprocess(rest))))
     f = open("I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H")
     csource = f.readlines()
     f.close()

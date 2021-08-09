@@ -159,7 +159,7 @@ def p_statement_block(p):
     p[0] = p[1]
 def p_block(p):
     'block : LEFTBRACE statement RIGHTBRACE'
-    p[0] = '#<statement-block {>\n\t' + p[2].replace("\n", "\n\t") + "\n\t#}</statement-block>"
+    p[0] = '#<statement-block>{\n\t' + p[2].replace("\n", "\n\t") + "#}</statement-block>\n\t"
 def p_statement_multiple(p):
     '''statement : statement SEMICOLON statement
                     | block statement'''
@@ -173,7 +173,8 @@ def p_name(p):
               | ID LEFTBRACKET NUMBER RIGHTBRACKET
               | POINTER_TO
               | POINTER_TO_STRUCT'''
-    p[0] = p[1].replace("->", ".").replace("*", "")
+    p[1] = p[1].replace("->", ".").replace("*", "")
+    p[0] = str(p[1]) + '=' + str(p[3]) if len(p) >= 4 else p[1]
 def p_statement_if(p):
     'statement : IF LPAREN comparisons RPAREN statement'
     # p[0] = 'if ' + p[3].strip() + ': ' + p[5]
@@ -337,7 +338,7 @@ def p_arg_type(p):
                   | FILE
                   | ID'''
     if p[1] == "unsigned": p[1] = p[2]
-    p[0] = 'str' if p[1] == 'char' else 'TextIO' if p[1] == 'FILE' else p[1]
+    p[0] = 'str' if p[1] == 'char' else 'TextIO' if p[1] == 'FILE' else 'float' if p[1] == 'long' else p[1]
 def p_function_name(p):
     'function_name : ID'
     p[0] = p[1]
@@ -353,10 +354,10 @@ def p_arg_call(p):
     p[0] = p[1] + ', '
 def p_statement_function_def(p):
     'statement : typ function_name LPAREN arg_declarations RPAREN LEFTBRACE statement RIGHTBRACE'
-    p[0] = 'def ' + p[2] + '(' + p[4][:-2] + ') -> ' + str(p[1]) + ":#<statement-block>{\n\t" + p[7].replace("\n", "\n\t") + "\n\t#}<\statement-block>"
+    p[0] = 'def ' + p[2] + '(' + p[4][:-2] + ') -> ' + str(p[1]) + ":#<statement-block>{\n\t" + p[7].replace("\n", "\n\t") + "\n\t#}</statement-block>"
 def p_statement_switch_case(p):
     'statement : SWITCH LPAREN name RPAREN LEFTBRACE cases RIGHTBRACE'
-    p[0] = "if " + p[3] + p[6].replace("break", "# break").replace("elif", "elif " + p[3])
+    p[0] = "if " + p[3] + p[6].replace("break", "#break").replace("elif", "elif " + p[3])
     casevars = [{}]
 def p_statement_cases(p):
     '''cases : cases case
@@ -385,12 +386,11 @@ def p_statement_cases(p):
             for k,v in dic.items():
                 if k != "default": p[0] += "\nelif == " + k + ":" + v
                 else: p[0] += "\nelse: " + v
-        # print("cases, p0 loop2", p[0])
 def p_statement_case(p):
     'case : CASE expression COLON statement'
     if p[4] == "": case_var_stmt_pairs.append({p[2]:p[4]})
     else:
-        case_var_stmt_pairs[-1][p[2]] = "#<case block>\n\t" + p[4].replace("\n", "\n\t") + "#</case block>"
+        case_var_stmt_pairs[-1][p[2]] = "#<statement-case>\n\t" + p[4].replace("\n", "\n\t") + "#</statement-case>"
         case_var_stmt_pairs.append({})
 def p_statement_default(p):
     'default : DEFAULT COLON statement'
@@ -422,6 +422,8 @@ def p_statement_typedef(p):
         body_init += "\n\t\t\tself." + k + " = None  # type: " + v[0]
         body_get += "'" + k + "':self." + k
     p[0] = "\nclass " + p[6].strip() + ":\n\t\tdef __init__(self):" + body_init + "\n\t\tdef get(self):\n\t\t\treturn {" + body_get + "}" + "\n\t\tdef __str__(self):\n\t\t\treturn json.dumps(self.get())"
+    typedef_vars.clear()
+    typedef_vars.append({})
 def p_type_declarations(p):
     '''declarations : declarations declaration statement_delimiter
                         | declaration statement_delimiter'''
@@ -436,7 +438,10 @@ def p_type_declaration(p):
                     | typ name ASSIGN expression
                     | typ name LEFTBRACKET NUMBER RIGHTBRACKET'''
     p[0] = {}
-    if len(p) == 3: p[0][p[2]] = [p[1], 0]
+    if len(p) == 3:
+        if '=' in p[2]: nam, siz = p[2].split('=')
+        else: nam, siz = p[2], 0
+        p[0][nam] = [p[1], siz]
     elif len(p) == 5: p[0][p[2]] = [p[1], p[5], "="]
     else: p[0][p[2]] = [p[1], int(p[4])]
 def p_type(p):
@@ -506,7 +511,7 @@ if __name__ == '__main__':
     for statement in samples:
         case_var_stmt_pairs, typedef_vars = [{}], [{}]
         if not pattern_star_slash_semicolon.findall(statement): statement = pattern_star_slash.sub("*/;", statement)
-        print("C statement: %s \nPython statement: %s" % (statement, main(statement))) # */ to */;
+        print("C statement: %s \nPython statement:\n%s" % (statement, main(statement))) # */ to */;
 
     '''f = open("VIBMENU.C") #codecs.open("VIBMENU.C", encoding="utf-8")
     csource = f.readlines()
@@ -526,8 +531,7 @@ if __name__ == '__main__':
     for statement in includes.split("\n"): include_statements.append(main(statement))
     print("C includes: %s \nPython imports: %s"%(includes, "\n".join(include_statements)))
     # for statement in rest.split('\n'): print("C statement: %s \nPython statement: %s"%(statement, main(statement)))
-    print("C statement: %s \nPython statement: %s"%(rest, main(rest)))
-    
+    print("C statement: %s \nPython statement:\n%s"%(rest, main(rest)))
     f = open("I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H")
     csource = f.readlines()
     f.close()
