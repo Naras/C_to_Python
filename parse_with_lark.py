@@ -1,3 +1,5 @@
+import os
+
 from lark import Lark, Transformer, v_args
 from statement_samples import *
 
@@ -24,13 +26,16 @@ c_grammar = r"""
          | "*" NAME         -> var
          | NAME "->" NAME   -> pointer_var
          | "(" term ")"      -> paranthesize
+         | NAME "[" INT "]"  -> var_array_element
     ?term_logical:  factor_logical | term_logical "||" factor_logical   -> logical_or
     ?factor_logical: atom_logical | factor_logical "&&" atom_logical -> logical_and
-    ?atom_logical: "True" -> value_true | "False" -> value_false | condition | "(" term_logical ")" -> paranthesize | "!" atom_logical -> logical_neg
+    ?atom_logical: "True" -> value_true | "False" -> value_false | condition | "(" term_logical ")" -> paranthesize
+                    | "!" atom_logical -> logical_neg | function_invoke
 
     ?assign: NAME "=" expression -> assign
          | "*" NAME  "=" expression        -> pointer_assign
          | NAME "->" NAME "=" expression    -> pointer_var_assign
+         | NAME "[" INT "]" "=" expression -> assign_array_element
 
     ?if: "if" "(" expression ")" single -> statement_if 
     ?if_else: "if" "(" expression ")" [single ";" | block] "else" single -> statement_if_else
@@ -46,16 +51,17 @@ c_grammar = r"""
     ?var_declarations: typ var_declaration ("," var_declaration)* 
     ?typ: "int" -> type_int | "float" -> type_float | "double" -> type_float | "long" -> type_float
                     | "unsigned"? "char" -> type_char | "FILE" -> type_file | NAME -> type_user
-    ?var_declaration: NAME ("," NAME)*  -> var_declaration_simple
-                        | NAME ("," NAME)* "=" expression -> var_declaration_initialized
-                        | NAME "[]" "=" value_list -> var_declaration_array_initialized
-    ?value_list: "{" expression ("," expression)* "}"
+    ?var_declaration: "*"? NAME ("," "*"? NAME)*  -> var_declaration_simple
+                        | "*"? NAME ("," "*"? NAME)* "=" expression -> var_declaration_initialized
+                        | "*"? NAME "[]" "=" value_list -> var_declaration_array_initialized
+                        | "*"? NAME "[" INT "]" -> var_declaration_array_sized
+    ?value_list: "{" expression ("," expression)* ","? "}"
 
     ?function_declaration: typ function_signature single
     ?function_signature: NAME "()" -> signature_noargs | NAME "(" arg_declaration ("," arg_declaration)* ")" -> signature_args
     ?arg_declaration:  typ NAME | typ "*" NAME | typ NAME "[]"
 
-    ?function_invoke: NAME "(" parameter_list ")" 
+    ?function_invoke: NAME ["()"| "(" ")"]  -> function_invoke_noparameters |  NAME "(" parameter_list ")"  -> function_invoke_parameters
     ?parameter_list: parameter ("," parameter)*
     ?parameter: [expression | "*" NAME] -> parameter_simple | NAME "->" NAME -> parameter_pointer
 
@@ -106,6 +112,7 @@ class TreeToPython(Transformer):
         name = str(name1) + "." + str(name2)
         var = str(name) if name not in self.vars else name
         return var
+    def var_array_element(self, name, num): return str(name) + "[" + str(num) + "]"
     def comment(self, arg): return str(arg)
     def addsub(self, a, op, b): return str(a) + str(op) + str(b)
     def muldivmodulo(self, a, op, b): return str(a) + str(op) + str(b)
@@ -122,6 +129,7 @@ class TreeToPython(Transformer):
     def value_true(self): return "True"
     def value_false(self): return "False"
     def assign(self, a, b): return a + " = " + str(b)
+    def assign_array_element(self, a, num, b): return a + "[" + str(num) + "]" + " = " + str(b)
     def pointer_assign(self, a, b): return a + " = " + str(b)
     def pointer_var_assign(self, a1, a2, b): return a1 + "." + a2 + " = " + str(b)
     def eq(self): return " == "
@@ -154,12 +162,13 @@ class TreeToPython(Transformer):
     def var_declarations(self, *args):
         lst = ''
         typ = args[0]
+        typL = typ
         vars = args[1:]
         for dic in vars:
             for k, v in dic.items():
                 if not isinstance(v, str): v = ", ".join([var for var in v])
-                if k[0] == "[": typ = "List[" + typ + "]"
-                lst += v + " = " + k + "\t# type " + typ + "\n"
+                if k[0] == "[": typL = "List[" + typ + "]"
+                lst += v + " = " + k + "\t# type " + typL + "\n"
         return lst
     def var_declaration_simple(self, *args): return {'None': [str(arg) for arg in args]}
     def var_declaration_initialized(self, *args):
@@ -167,6 +176,7 @@ class TreeToPython(Transformer):
         return {str(val): var}
     def var_declaration_array(self, *args): return ",".join([str(arg) for arg in args])[1:]
     def var_declaration_array_initialized(self, var, value_list): return {value_list: var}
+    def var_declaration_array_sized(self, var, size): return {'[None] * ' + str(size):var}
     def value_list(self, *args): return "[" + ", ".join([arg for arg in args]) + "]"
     def type_int(self): return "int"
     def type_float(self): return "float"
@@ -178,7 +188,8 @@ class TreeToPython(Transformer):
     def signature_noargs(self, name): return [name]
     def signature_args(self, *args): return [str(arg) for arg in args]
     def arg_declaration(self, typ, name): return str(name) + ' ' + str(typ)
-    def function_invoke(self, name, parameters): return str(name) + "(" + str(parameters) + ")"
+    def function_invoke_parameters(self, name, parameters): return str(name) + "(" + str(parameters) + ")"
+    def function_invoke_noparameters(self, name): return str(name) + "()"
     def parameter_list(self, *args): return ", ".join([str(arg) for arg in args])
     def parameter_simple(self, name): return str(name)
     def parameter_pointer(self, pointer, name): return str(pointer) + "." + str(name)
@@ -233,38 +244,14 @@ def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strcat.sub(
 def prnt(stmt): print("C statement: %s \nPython statement:\n%s" % (stmt, parse(preprocess(stmt))))
 
 if __name__ == '__main__':
-    for stmt in samples: prnt(stmt)
+    for stmt in samples: prnt(stmt)  # senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal\\', 'I:\\VBtoPython\\Amarakosha\\Semantic\\'
 
-    '''f = open("VIBMENU.C") #codecs.open("VIBMENU.C", encoding="utf-8")
-    csource = f.readlines()
-    f.close()
-    statement_asis = pattern_crlf.sub("\n", " ".join(csource))
-    includes = '\n '.join(["#include" + p for p in pattern_include.findall(statement_asis)])
-    # print("includes %s\nasis %s"%(includes, statement_asis))
-    # print(statement_asis, "\nincludes->", includes, pattern_nl.search(statement_asis))
-    # for match in pattern_not_include.findall(statement_asis, re.M): print(match)
-    splits = statement_asis.split(includes)
-    rest = pattern_crlf.sub("\n", splits[1])  # crlf to lf, */ to */; else statement boundary not recognized :-(
-    rest = pattern_star_slash.sub("*/;", rest)
-    # print("includes \n%s\nrest %s"%(includes, rest))
-    # exit(1)
-    include_statements = []
-    for statement in includes.split("\n"): include_statements.append(parse(preprocess(statement)))
-    print("C includes:\n %s \nPython imports:\n %s"%(includes, "\n".join(include_statements)))
-    # for statement in rest.split('\n'): print("C statement: %s \nPython statement: %s"%(statement, main(statement)))
-    print("C statement: %s \nPython statement:\n%s"%(rest, parse(preprocess(rest))))
-    f = open("I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H")
-    csource = f.readlines()
-    f.close()
-    statement_asis = pattern_crlf.sub("\n", " ".join(csource))
-    defines = '\n '.join(["#define" + p for p in pattern_define.findall(statement_asis)])
-    # print("includes %s\nasis %s"%(defines, statement_asis))
-    # exit(1)
-    splits = statement_asis.split(defines)
-    rest = pattern_crlf.sub("\n", splits[1])
-    rest = pattern_star_slash.sub("*/;", rest)
-    define_statements = []
-    for statement in defines.split("\n"): define_statements.append(parse(preprocess(statement)))
-    print("C defines: %s \nPython inits: %s" % (defines, "\n".join(define_statements)))
-    # exit(1)
-    print("C statement: %s \nPython statement: %s" % (rest, parse(preprocess(rest))))'''
+    # senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal', 'I:\\VBtoPython\\Amarakosha\\Semantic'
+    # for fil in [os.path.join(semantic, 'FINDVERB.C')]: #'VIBMENU.C', os.path.join(senAnal + 'SYNTAX.H'),
+    #     f = open(fil) #codecs.open("VIBMENU.C", encoding="utf-8")
+    #     csource = f.readlines()
+    #     f.close()
+    #     statement_asis = pattern_crlf.sub("\n", " ".join(csource))
+    #     statement = pattern_crlf.sub("\n", statement_asis)  # crlf to lf, */ to */; else statement boundary not recognized :-(
+    #     statement = pattern_star_slash.sub("*/;", statement)
+    #     print("C statement: %s \nPython statement:\n%s" % (statement, parse(preprocess(statement))))

@@ -174,7 +174,7 @@ def p_name(p):
               | POINTER_TO
               | POINTER_TO_STRUCT'''
     p[1] = p[1].replace("->", ".").replace("*", "")
-    p[0] = str(p[1]) + '=' + str(p[3]) if len(p) >= 4 else p[1]
+    p[0] = str(p[1]) + '=' + str(p[3]) if len(p) == 5 else str(p[1]) + '[]' if len(p) == 4 else p[1]
 def p_statement_if(p):
     'statement : IF LPAREN comparisons RPAREN statement'
     # p[0] = 'if ' + p[3].strip() + ': ' + p[5]
@@ -197,32 +197,16 @@ def p_statement_comparisons(p):
         if p[i] != None:
             if p[i] in ["||", "&&", "!"]: p[0] += ["or", "and", "not"][["||", "&&", "!"].index(p[i])] + " "
             else: p[0] += p[i] + " "
+def p_operator(p):
+    '''operator : EQUAL
+                | NOTEQ
+                | LARGE
+                | SMALL
+                | LRGEQ
+                | SMLEQ'''
+    p[0] = p[1]
 def p_statement_comparison(p):
-    '''comparison : name
-                    | name EQUAL name
-                    | name NOTEQ name
-                    | name LARGE name
-                    | name SMALL name
-                    | name LRGEQ name
-                    | name SMLEQ name
-                    | name EQUAL expression
-                    | name NOTEQ expression
-                    | name LARGE expression
-                    | name SMALL expression
-                    | name LRGEQ expression
-                    | name SMLEQ expression
-                    | expression EQUAL name
-                    | expression NOTEQ name
-                    | expression LARGE name
-                    | expression SMALL name
-                    | expression LRGEQ name
-                    | expression SMLEQ name
-                    | expression EQUAL expression
-                    | expression NOTEQ expression
-                    | expression LARGE expression
-                    | expression SMALL expression
-                    | expression LRGEQ expression
-                    | expression SMLEQ expression'''
+    'expression :  expression operator expression'
     p[0] = str(p[1]) + " " + p[2] + " " + str(p[3]) if len(p) > 3 else str(p[1]) + " " + p[2]  if len(p) > 2 else str(p[1])
 def p_statement_return(p):
     'statement : RETURN expression'
@@ -230,21 +214,22 @@ def p_statement_return(p):
 def p_statement_expression(p):
     'statement : expression'
     p[0] = p[1]
-def p_expression_name(p):
-    'expression : name'
+def p_expression_id(p):
+    'expression : ID'
     p[0] = p[1]
+def p_expression_array_element(p):
+    'expression : ID LEFTBRACKET NUMBER RIGHTBRACKET'
+    p[0] = p[1] + "[" + str(p[3]) + "]"
 def p_expression_literal(p):
     '''expression : LITERAL_APOSTROPHE
                      | LITERAL_QUOTE'''
-    p[0] = p[1]
-def p_expression_comparison(p):
-    'expression : comparison'
     p[0] = p[1]
 def p_expression_multiple(p):
     '''expression : expression AND expression
                     | expression OR expression
                     | NOT expression'''
-    p[0] = p[1] + " " + ["and", "or", "not"][["&&", "||", "!"].index(p[2])] + " " + p[3]
+    op = [" and ", " or "][["&&", "||"].index(p[2])] if len(p) == 4 else " not "
+    p[0] = p[1] + op + p[3] if op in [" and ", " or "] else op + p[2]
 def p_expression_plus_minus(p):
     '''expression : expression PLUS term
                     | expression MINUS term'''
@@ -294,24 +279,31 @@ def p_var_declarations(p):
     p[0] = {}
     for pi in p[1:]:
         if isinstance(pi, list):
-            p[0][pi[0]] = pi[2] if len(pi) == 3 else pi[4]
+            p[0][pi[0]] = 'None' if len(pi) == 1 else pi[2] if len(pi) == 3 else pi[4] if len(pi) >= 5 else '[None] * ' + str(pi[2]) if pi[1] == '[' and pi[3] == ']' else 'None'
         elif isinstance(pi, dict):
             for k, v in pi.items(): p[0][k] = v
 def p_var_declaration(p):
     '''varname : ID
                 | ID ASSIGN expression
                 | ID LEFTBRACKET RIGHTBRACKET
-                | ID LEFTBRACKET RIGHTBRACKET ASSIGN values_list'''
+                | ID LEFTBRACKET RIGHTBRACKET ASSIGN values_list
+                | ID LEFTBRACKET NUMBER RIGHTBRACKET
+                | POINTER_TO
+                | POINTER_TO LEFTBRACKET RIGHTBRACKET
+                | POINTER_TO LEFTBRACKET RIGHTBRACKET ASSIGN values_list
+                | POINTER_TO LEFTBRACKET NUMBER RIGHTBRACKET'''
     # print("var decl", [pi for pi in p[1:]])
     p[0] = []
     for pi in p[1:]:
-        if pi != None: p[0].append(pi)
+        if pi != None:
+            if isinstance(pi, str): pi = pi.replace('*', '')
+            p[0].append(pi)
 def p_var_values_list(p):
     'values_list : LEFTBRACE values RIGHTBRACE'
-    # print("values_list", [pi for pi in p[2:-1]])
     p[0] = p[2:-1]
 def p_var_values(p):
     '''values : values COMMA expression
+                | values COMMA
                 | expression'''
     # print("values", [pi for pi in p[1:]])
     p[0] = ", ". join([v for v in p[1:] if v != ","])
@@ -348,17 +340,18 @@ def p_arg_calls(p):
                                 | empty'''
     p[0] = ''
     for i in range(1, len(p), 2):
-        p[0] += p[i]
+        if p[i] != None: p[0] += p[i]
 def p_arg_call(p):
     'arg_call : expression'
     p[0] = p[1] + ', '
 def p_statement_function_def(p):
-    'statement : typ function_name LPAREN arg_declarations RPAREN LEFTBRACE statement RIGHTBRACE'
-    p[0] = 'def ' + p[2] + '(' + p[4][:-2] + ') -> ' + str(p[1]) + ":#<statement-block>{\n\t" + p[7].replace("\n", "\n\t") + "\n\t#}</statement-block>"
+    'statement : typ function_name LPAREN arg_declarations RPAREN statement'
+    p[0] = 'def ' + p[2] + '(' + p[4][:-2] + ') -> ' + str(p[1]) + ":\n\t" + p[6].replace("\n", "\n\t")
 def p_statement_switch_case(p):
     'statement : SWITCH LPAREN name RPAREN LEFTBRACE cases RIGHTBRACE'
     p[0] = "if " + p[3] + p[6].replace("break", "#break").replace("elif", "elif " + p[3])
-    casevars = [{}]
+    case_var_stmt_pairs.clear()
+    case_var_stmt_pairs.append({})
 def p_statement_cases(p):
     '''cases : cases case
                 | cases default
