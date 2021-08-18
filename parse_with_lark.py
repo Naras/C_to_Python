@@ -271,14 +271,14 @@ def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strcat.sub(
 def prnt(stmt): print("C statement: %s \nPython statement:\n%s" % (stmt, parse(preprocess(stmt))))  # print("C statement: %s\ntree\n%s \nPython statement:\n%s" % (stmt, pretty(stmt), parse(stmt)))
 
 if __name__ == '__main__':
-    for stmt in samples: prnt(stmt)
+    # for stmt in samples: prnt(stmt)
 
-    # senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal', 'I:\\VBtoPython\\Amarakosha\\Semantic'
-    # for fil in [os.path.join(semantic, 'FINDVERB.C')]: #'VIBMENU.C', os.path.join(senAnal + 'SYNTAX.H'),
-    #     f = open(fil) #codecs.open("VIBMENU.C", encoding="utf-8")
-    #     csource = f.readlines()
-    #     f.close()
-    #     statement_asis = pattern_crlf.sub("\n", " ".join(csource))
-    #     statement = pattern_crlf.sub("\n", statement_asis)  # crlf to lf, */ to */; else statement boundary not recognized :-(
-    #     statement = pattern_star_slash.sub("*/;", statement)
-    #     print("C statement: %s \nPython statement:\n%s" % (statement, parse(preprocess(statement))))
+    senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal', 'I:\\VBtoPython\\Amarakosha\\Semantic'
+    for fil in [os.path.join(semantic, 'FINDVERB.C')]: #'VIBMENU.C', os.path.join(senAnal + 'SYNTAX.H'),
+        f = open(fil) #codecs.open("VIBMENU.C", encoding="utf-8")
+        csource = f.readlines()
+        f.close()
+        statement_asis = pattern_crlf.sub("\n", " ".join(csource))
+        statement = pattern_crlf.sub("\n", statement_asis)  # crlf to lf, */ to */; else statement boundary not recognized :-(
+        statement = pattern_star_slash.sub("*/;", statement)
+        print("C statement: %s \nPython statement:\n%s" % (statement, parse(preprocess(statement))))
