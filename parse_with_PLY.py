@@ -26,7 +26,8 @@ tokens = [
     'LEFTBRACKET', 'RIGHTBRACKET',
     'POINTER_TO', 'POINTER_TO_STRUCT',
     "LITERAL_APOSTROPHE", 'LITERAL_QUOTE',
-    "DOT", "COMMENT_MULTI_LINE", "COMMENT_SINGLE_LINE"
+    "DOT", "COMMENT_MULTI_LINE", "COMMENT_SINGLE_LINE",
+    "PLUSPLUS", "MINUSMINUS", "PLUSEQUAL", "MINUSEQUAL"
 ]
 
 reserved={
@@ -108,6 +109,10 @@ t_TYPEDEF = r"typedef\s*"
 t_INCLUDE = r"\#include*"
 t_DOT = r"\."
 t_DEFINE = r"\#define*"
+t_PLUSPLUS = r"\+\+"
+t_MINUSMINUS = r"\-\-"
+t_PLUSEQUAL = r"\+\="
+t_MINUSEQUAL = r"\-\="
 
 def t_POINTER_TO_STRUCT(t):
     r'[a-zA-Z_][a-zA-Z0-9_]*\-\>[a-zA-Z_][a-zA-Z0-9_]*'
@@ -167,14 +172,22 @@ def p_statement_multiple(p):
 def p_statement_assign(p):
     'statement : name ASSIGN expression'
     p[0] = p[1] + ' = ' + str(p[3])
+def p_indexes(p):
+    '''indexes :  indexes index
+                | index'''
+    p[0] = ''.join(pi for pi in p[1:])
+def p_index(p):
+    '''index : LEFTBRACKET NUMBER RIGHTBRACKET
+              | LEFTBRACKET ID RIGHTBRACKET
+              | LEFTBRACKET RIGHTBRACKET'''
+    p[0] = '[' + str(p[2]) + ']' if len(p) == 4 else '[]'
 def p_name(p):
     '''name : ID
-              | ID LEFTBRACKET RIGHTBRACKET
-              | ID LEFTBRACKET NUMBER RIGHTBRACKET
+              | ID indexes
               | POINTER_TO
               | POINTER_TO_STRUCT'''
     p[1] = p[1].replace("->", ".").replace("*", "")
-    p[0] = str(p[1]) + '=' + str(p[3]) if len(p) == 5 else str(p[1]) + '[]' if len(p) == 4 else p[1]
+    p[0] = p[1] + p[2] if len(p) == 3 else p[1]
 def p_statement_if(p):
     'statement : IF LPAREN comparisons RPAREN statement'
     # p[0] = 'if ' + p[3].strip() + ': ' + p[5]
@@ -218,8 +231,8 @@ def p_expression_id(p):
     'expression : ID'
     p[0] = p[1]
 def p_expression_array_element(p):
-    'expression : ID LEFTBRACKET NUMBER RIGHTBRACKET'
-    p[0] = p[1] + "[" + str(p[3]) + "]"
+    'expression : ID indexes'
+    p[0] = p[1] + p[2]
 def p_expression_literal(p):
     '''expression : LITERAL_APOSTROPHE
                      | LITERAL_QUOTE'''
@@ -261,7 +274,6 @@ def p_empty(p):
     pass
 def p_statement_var_declarations(p):
     'statement : typ varnames'
-    # print("statement var declarations", [pi for pi in p[1:]])
     p[0] = ""
     for pi in p[2:]:
         for k, v in pi.items():
@@ -275,7 +287,6 @@ def p_statement_var_declarations(p):
 def p_var_declarations(p):
     '''varnames : varnames COMMA varname
                 | varname'''
-    # print("var declarations", [pi for pi in p[1:]])
     p[0] = {}
     for pi in p[1:]:
         if isinstance(pi, list):
@@ -292,7 +303,6 @@ def p_var_declaration(p):
                 | POINTER_TO LEFTBRACKET RIGHTBRACKET
                 | POINTER_TO LEFTBRACKET RIGHTBRACKET ASSIGN values_list
                 | POINTER_TO LEFTBRACKET NUMBER RIGHTBRACKET'''
-    # print("var decl", [pi for pi in p[1:]])
     p[0] = []
     for pi in p[1:]:
         if pi != None:
@@ -315,10 +325,10 @@ def p_arg_declarations(p):
                             | arg_declaration
                             | empty'''
     p[0] = ''
-    for i in range(1, len(p), 2):
-        p[0] += p[i]
+    for i in range(1, len(p), 2): p[0] += p[i]
 def p_arg_declaration(p):
     'arg_declaration : arg_type name'
+    if p[2][-2:] == '[]':  p[2], p[1] = p[2][:-2], 'List[' + p[1] + ']'
     p[0] = p[2] + ' ' + p[1] + ', '
 def p_arg_type(p):
     '''arg_type : INT
@@ -396,7 +406,7 @@ def p_statement_continue(p):
     p[0] = "continue"
 def p_statement_while(p):
     'statement : WHILE LPAREN expression RPAREN statement'
-    p[0] = ("while " + p[3] + ":" + p[5]).replace("NULL", "None")
+    p[0] = ("while(" + p[3] + "):" + p[5]).replace("NULL", "None")
 def p_statement_typedef(p):
     'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE name'
     body_init, body_get = "", ""
@@ -433,6 +443,9 @@ def p_type_declaration(p):
     p[0] = {}
     if len(p) == 3:
         if '=' in p[2]: nam, siz = p[2].split('=')
+        elif '[' in p[2]:
+            nam, siz = p[2].split('[')
+            siz = int(siz[:-1])
         else: nam, siz = p[2], 0
         p[0][nam] = [p[1], siz]
     elif len(p) == 5: p[0][p[2]] = [p[1], p[5], "="]
@@ -465,6 +478,42 @@ def p_statement_define(p):
                     | DEFINE ID LITERAL_APOSTROPHE
                     | DEFINE ID LITERAL_QUOTE'''
     p[0] = p[2] + " = " + str(p[3])
+def p_statement_for(p):
+    'statement : FOR LPAREN for_init for_final for_each RPAREN statement'
+    stepper, initial, terminal_condition = str(p[5]), p[3], p[4]
+    if stepper[-5:] == ' += 1' or '=' not in stepper: step = ''
+    elif stepper[-5:] == ' -= 1': step = ', -1'
+    else:
+        step = stepper.split("=")[1]
+        if '+' in stepper: step = ',' + step.strip()
+        elif '-' in stepper: step = ', -' + step.strip()
+    p[0] = 'for ' + str(initial[0]) + ' in range(' + str(initial[1]) + ", " + str(terminal_condition[2]) + step + "):\n\t" + str(p[7])
+def p_for_init(p):
+    'for_init : ID ASSIGN expression SEMICOLON'
+    p[0] = [str(p[1]), str(p[3])]
+def p_for_final(p):
+    'for_final : ID operator expression SEMICOLON'
+    p[0] = [str(p[1]), str(p[2]), str(p[3])]
+def p_for_each_inc_dec(p):
+    '''for_each : increment
+                | decrement'''
+    p[0] = p[1]
+def p_increment_pluequal(p):
+    'increment : ID PLUSEQUAL NUMBER'
+    p[0] = str(p[1]) + ' += ' + str(p[3])
+def p_decrement_minusequal(p):
+    'decrement : ID MINUSEQUAL NUMBER'
+    p[0] = str(p[1]) + ' -= ' + str(p[3])
+def p_increment(p):
+    'increment : ID PLUSPLUS'
+    p[0] = str(p[1]) + ' += 1'
+def p_decrement(p):
+    'decrement : ID MINUSMINUS'
+    p[0] = str(p[1]) + ' -= 1'
+def p_expression_incr_decr(p):
+    '''expression : increment
+                | decrement'''
+    p[0] = p[1]
 # Error rule for syntax errors
 def p_error(p):
     print('Syntax error at "%s"' % p.value)
@@ -507,6 +556,7 @@ if __name__ == '__main__':
         print("C statement: %s \nPython statement:\n%s" % (statement, main(statement))) # */ to */;
 
     '''f = open("VIBMENU.C") #codecs.open("VIBMENU.C", encoding="utf-8")
+    # f = open("I:\\VBtoPython\\Amarakosha\\Semantic\\FINDVERB.C")
     csource = f.readlines()
     f.close()
     statement_asis = pattern_crlf.sub("\n", " ".join(csource))

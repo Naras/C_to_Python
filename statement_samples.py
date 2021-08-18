@@ -3,7 +3,7 @@ stmt_comment = "if(tvibptr->stype =='1'){  /* blah \n bleh */;\nyes=findverb;}\n
 # stmt_comment = "if(tvibptr->stype =='1'){ /* blah */yes=findverb;}/*  */"
 # stmt_comment = "if(tvibptr->stype =='1') yes=findverb;"
 stmt_var_decl_initialized = "int yes=0,success=1;char t='ty'"
-stmt_assignment = "choice = (3 + 4 * 8 % 3) / 7;\n a=b; // rest of line a comment "
+stmt_assignment = "choice = (3 + 4 * 8 % 3) / 7;\n a=b; type[i]=words[3][0]; type[a][b]=words[c][d][e]; // rest of line a comment "
 stmt_func_decl_simple = "int gcd(unsigned char u, int v)\n{ if(v==2) return u - v * w;}"
 stmt_func_decl_complex = "int gcd(int u, int v){ if(v==k) return u * v/(w+r); else return gcd(v, v + (u-v)/(v-u));}"
 stmt_func_decl_complex1 = "int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean)"
@@ -43,6 +43,9 @@ stmt_if_assign2 = 'if(a==0 && a == b || strcmp(temp->Type,"Noun")==0) choice = r
                   'if(strcmp(temp->Type,"Noun")==0 && strcmp(temp->specf,"Subject")==0 && temp->subinsen==0){Assignlingavib(drecord);break;}' \
                   'if(temp->next != NULL)temp=temp->next;else break;'
 stmt_if_assign3 = 'if(a==b){Assignlingavib(drecord);break};\nelse temp=temp->next;'
+stmt_if_assign4 = 'if(strcmp(word,list1[i])==0) {if(linga==0) strcpy(message,"×ÌÔáÂÚ");  ' \
+                  'if(linga==1) strcpy(message,"×ÌÔáÂ£");if(linga==2) strcpy(message,"×ÌÔáÂ¢");' \
+                 'strcpy(vword,tvibptr->bword);  strcat(vword,message);  strcpy(tvibptr->arthaword,vword);return 1; } '
 stmt_strcmp_cpy_cat = 'if(strcmpi(voice,"karmani") ==0) \
       					{ \
       						strcpy(tvibptr->arthaword,tvibptr->bword); \
@@ -118,9 +121,38 @@ stmt_typedef = "typedef struct { int vibhakti[20]; int vacana[20]; int linga[20]
 stmt_typedef_many = "typedef struct { int vibhakti[20]; int vacana[20]; int linga[20]; int purusha[20]; unsigned char *subanta[20]; unsigned char *pratipadika[20]; unsigned char *erb[20];         /* End Removed Base */; int wordNum[20]; int numofNouns; } SUBANTA_DATA;  typedef struct { int dhatuVidha[10]; int prayoga[10]; int lakara[10]; int purusha[10]; int vacana[10]; int gana[10]; int padi[10]; int karma[10]; int it[10]; unsigned char *tiganta[10]; unsigned char *dhatu[10]; unsigned char *nijdhatu[10]; unsigned char *sandhatu[10]; unsigned char *artha[10]; unsigned char *err[10];    /* End Removed Root */; int wordNum[10]; int numofVerbs; } TIGANTA_DATA;  typedef struct { int vibhakti[20]; int vacana[20]; int linga[20]; int prayoga[20]; int krdType[20]; int dhatuVidha[20]; int purusha[20]; int gana[20]; int padi[20]; int karma[20]; int it[20]; unsigned char *krdanta[20]; unsigned char *pratipadika[20]; unsigned char *erb[20];            /* end removed base of krdanta */; unsigned char *dhatu[20]; unsigned char *nijdhatu[20]; unsigned char *sandhatu[20]; unsigned char *artha[20]; int wordNum[20]; int numofKrdantas; } KRDANTA_DATA;  typedef struct { unsigned char *avyaya[30]; int wordNum[30]; int numofAvyayas; } AVYAYA_DATA;  typedef struct { int dhatuVidha[20]; int gana[20]; int padi[20]; int karma[20]; int it[20]; int krdavType[20]; unsigned char *krdavyaya[20]; unsigned char *dhatu[20]; unsigned char *nijdhatu[20]; unsigned char *sandhatu[20]; unsigned char *artha[20]; int wordNum[20]; int numofKrdavyayas; } KRDAV_DATA;  typedef struct { unsigned char *word[20]; int vibhakti[20]; int vacana[20]; int purusha[20]; int linga[20]; int wordPos[20]; int numofWords; } VIBHAKTI;  typedef struct { unsigned char *verb; unsigned char *dhatu; int purusha; int vacana; int prayoga; int karma; int wordPos; } VERB;  typedef struct { unsigned char *krdanta; int vibhakti; int vacana; int linga; int prayoga; int karma; int krdType; } PARTICIPLE;  typedef struct { unsigned char *sentence; unsigned char *idens[100]; int numofIdens; } RECORD;  typedef struct { unsigned char *iden[30]; int numofIdens; } WORD;  typedef struct { unsigned char *word[15]; int numofWords; } TYPE;"
 stmt_var_decl_array = "unsigned char list[]={'ÈÞÏèÔÚÁèØ', '¤ÈÏÚÁèØ', 'ÄÛÆ', 'ÏÚÂèÏÛ', '¤ØåÏÚÂèÏ', '×ÈèÂÚØ', 'È³èÖ', 'ÌÚ×', '×¢ÔÂè×Ï'};"
 stmt_func_def_vibmenu_full = "int choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean) { int yes=0,success=1;  while(1) { if((tvibptr->stype =='1' && strcmp(tvibptr->specf,'dative')==0 ) || tvibptr->stype =='5' || tvibptr->stype=='2'|| tvibptr->stype=='4') { /* Check for case where there is only a single meaning for ¸ÂÝÏèÂÜ ÔÛË³èÂÛ */ yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean);  if(tvibptr->stype=='2' && tvibptr->matnoun !=1 ) { switch(tvibptr->spos) { case 0: if(tvibptr->semlinga==0) strcat(tvibptr->arthaword,'×Ú '); if(tvibptr->semlinga==1) strcat(tvibptr->arthaword,'×£ '); if(tvibptr->semlinga==2) strcat(tvibptr->arthaword,'ÂèÂ '); break; case 1: strcat(tvibptr->arthaword,'ÂÆèÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ '); break; case 2: strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ '); break; case 3: strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ '); break; case 4: strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ '); break; case 5: strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ '); break; } } if(tvibptr->stype == '2' || tvibptr->stype =='4' || tvibptr->stype=='5') success= 0;  } if(tvibptr->stype =='1' && (strcmpi(tvibptr->specf,'object')==0)) {        /* Check for case where there is only a single meaning for ÄèÔÛÂÜÍÚ ÔÛË³èÂÛ */ yes=findverb(voice,tvibptr->sword,tvibptr,afp,fl,VerbMean); }   /* If not in above case following steps lead to menu display for    selection based on type of vibhakti */  if(tvibptr->stype =='1')  {  switch(tvibptr->spos)  { case 0: if(strcmpi(voice,'kartari') ==0) strcpy(tvibptr->arthaword,tvibptr->sword); if(strcmpi(voice,'karmani') ==0) { strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÂßÂÚÆÛÏÞÈ³ '); } break;  case 1: if(strcmpi(voice,'kartari') ==0) { strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏèÌÂÚÆÛÏÞÈ³ '); } if(strcmpi(voice,'karmani') ==0) { strcpy(tvibptr->arthaword,tvibptr->sword); } break;  case 2: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾³ÏÁÂÚÆÛÏÞÈ³ '); break;  case 3: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾×ÌèÈèÏÄÚÆÂÚÆÛÏÞÈ³ '); break;  case 4: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÈÚÄÚÆÂÚÆÛÏÞÈ³ '); break;  case 6: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'×ÌèÊÆèÅÛ '); break;  case 5: strcpy(tvibptr->arthaword,tvibptr->bword); strcat(tvibptr->arthaword,'ÆÛÖè¾ÚÅÛ³ÏÁÂÚÆÛÏÞÈ³ '); break; }  }  if (tvibptr->next != NULL) tvibptr=tvibptr->next;  else  break; } return success; }"
-stmt_func_def_complex3 = 'int findverb(unsigned char voice[],unsigned char *Word,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean)\n{\n	int found=0,i,j,pos;\n	int vnum=0,vno=0,linga=4;\n	unsigned char line1[300],*words[17],message[60],word[20],vword[80],type,lword[30],ltype="Z",temp[4];\n	unsigned char *list[]={"ÈÞÏèÔÚÁèØ", "¤ÈÏÚÁèØ", "ÄÛÆ", "ÏÚÂèÏÛ", "¤ØåÏÚÂèÏ", "×ÈèÂÚØ", "È³èÖ", "ÌÚ×", "×¢ÔÂè×Ï"};\n	unsigned char *list1[]={"ºè¼ÚÆ","×Ý´","ÄÝ£´","¦¸è¹Ú","ÄèÔáÖ","ÈèÏÍÂèÆ","ÅÏèÌ","¤ÅÏèÌ","×¢×è³ÚÏ","ËÚÔÆÚ","ÔÛÔá³","ÊåÅ","ÊÝÄèÅÛ","ÅÜ","ÈèÏºè¼Ú",};\n\nfseek(afp,fl,0);}if(tvibptr->stype =="2") type="0"; while(found==0  ||(!feof(afp))){fgets(line1,299,afp);if(line1[0]==" - "){	found=1;	break;}};'
+stmt_for = 'for(i=0;i<vno;i-=3) free(words[i]);'
+stmt_increment_decrement = 'i++;j--;k+=2;h-=3;'
+stmt_func_def_complex3 = 'int findverb(unsigned char voice[],unsigned char *Word,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean)' \
+                 '{int found=0,i,j,pos;int vnum=0,vno=0,linga=4;unsigned char line1[300],*words[17],message[60],word[20],vword[80],type,' \
+                 'lword[30],ltype="Z",temp[4];unsigned char *list[]={"ÈÞÏèÔÚÁèØ", "¤ÈÏÚÁèØ", "ÄÛÆ", "ÏÚÂèÏÛ", "¤ØåÏÚÂèÏ", "×ÈèÂÚØ", "È³èÖ", "ÌÚ×", "×¢ÔÂè×Ï"};' \
+                 'unsigned char *list1[]={"ºè¼ÚÆ","×Ý´","ÄÝ£´","¦¸è¹Ú","ÄèÔáÖ","ÈèÏÍÂèÆ","ÅÏèÌ","¤ÅÏèÌ","×¢×è³ÚÏ","ËÚÔÆÚ","ÔÛÔá³","ÊåÅ","ÊÝÄèÅÛ","ÅÜ","ÈèÏºè¼Ú",};' \
+                 'fseek(afp,fl,0);}if(tvibptr->stype =="2") type="0";' \
+                 ' while(found==0  ||(!feof(afp))){fgets(line1,299,afp);if(line1[0]==" - "){found=1;break;}vno=0;vno=split(line1,words);' \
+                 'if(strcmp(words[0],"ÔÚ³èÍÌè")==0) {for(i=0;i<vno;i++){free(words[i]);continue;}}' \
+                 'vno=0; vno=split(line1,words); ' \
+                 'if(strcmp(words[0],"ÔÚ³èÍÌè")==0) /* Check for input sentence */ ' \
+                 '{  for(i=0;i<vno;i++) free(words[i]);  continue; }' \
+                 ' vno=split(line1,words); type=words[3][0]; strcpy(word,words[4]); ' \
+                 'if(type=="1") {  strncpy(temp,words[6]+2,1);  temp[1]="\0";  linga=atoi(temp);  pos=atoi(words[7]); }' \
+                 ' if(type=="5" || type=="4") {  if(type=="5") strcpy(lword,VerbMean);  else  { strcpy(lword,words[9]);  }' \
+                 '  strncpy(temp,words[11]+1,1);  temp[1]="\0";  ltype=temp[0]; }' \
+                 ' if(type=="2") {  strcpy(lword,words[13]); }' \
+                 ' if(type=="1"&& (pos >= 1 && pos <=3)) {' \
+                 '  for(i=0;i<15;i++)  ' \
+                 '{ if(strcmp(word,list1[i])==0) {' \
+                 '  if(linga==0) strcpy(message,"×ÌÔáÂÚ");  ' \
+                 'if(linga==1) strcpy(message,"×ÌÔáÂ£");' \
+                 'if(linga==2) strcpy(message,"×ÌÔáÂ¢");' \
+                 '  strcpy(vword,tvibptr->bword);  strcat(vword,message);  strcpy(tvibptr->arthaword,vword);' \
+                 '  return 1; }  } } ' \
+                 'if(type=="5") {  found=dispmea(voice,vnum,list,tvibptr,ltype,lword);  for(i=0;i<vno;i++) free(words[i]);  return found; } ' \
+                 'if(type=="2" && tvibptr->stype=="2" && strcmp(Word,words[1])==0) {  found=dispmea(voice,vnum,list,tvibptr,ltype,lword);  ' \
+                 'for(i=0;i<vno;i++) free(words[i]);  return found; } else if(type=="4" && tvibptr->stype=="4" && strcmp(Word,words[1])==0) ' \
+                 '{  found=dispmea(voice,vnum,list,tvibptr,ltype,lword);  for(i=0;i<vno;i++) free(words[i]);  return found; } ' \
+                 'for(i=0;i<vno;i++)  free(words[i]);};'
 
-samples = [stmt_comment, stmt_var_decl_initialized, stmt_var_decl_array, stmt_assignment, stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_func_def_complex1, stmt_func_def_complex2, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22, stmt_switch_case3, stmt_while, stmt_if_while_complex1, stmt_while_complex2, stmt_while_complex3, stmt_define, stmt_include, stmt_include2, stmt_include3, stmt_typedef_many, stmt_func_def_vibmenu_full, stmt_func_def_complex3]
+samples = [stmt_comment, stmt_var_decl_initialized, stmt_var_decl_array, stmt_assignment, stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_func_def_complex1, stmt_func_def_complex2, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_if_assign4, stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22, stmt_switch_case3, stmt_while, stmt_if_while_complex1, stmt_while_complex2, stmt_while_complex3, stmt_define, stmt_include, stmt_include2, stmt_include3, stmt_typedef_many, stmt_func_def_vibmenu_full, stmt_increment_decrement, stmt_for, stmt_func_def_complex3]
 
 pattern_crlf, pattern_spaces_2_or_more, pattern_tabs, pattern_c_strcmp, pattern_c_strcpy, pattern_c_strcat, \
     pattern_include, pattern_define,  pattern_nl, pattern_star_slash, pattern_star_slash_semicolon = \

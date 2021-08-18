@@ -9,9 +9,10 @@ c_grammar = r"""
     ?statement: single | multiple 
     ?single: expression | assign | if | if_else | empty | comment | var_declarations | function_declaration | while
             | "break" -> statement_break | "continue" -> statement_continue | block | switch | typedef 
-            | "return" expression -> statement_return | "#include" filename -> statement_include | "#define" NAME defineval -> statement_define
+            | "return" expression -> statement_return | "#include" filename -> statement_include | "#define" NAME defineval -> statement_define 
+            | for
 
-    ?expression: term | literal | term_logical | function_invoke
+    ?expression: term | literal | term_logical | function_invoke  | increment_decrement
     ?literal: /'.*?'/ | /".*?"/
 
     ?term: factor | term plusminus factor   -> addsub
@@ -26,16 +27,17 @@ c_grammar = r"""
          | "*" NAME         -> var
          | NAME "->" NAME   -> pointer_var
          | "(" term ")"      -> paranthesize
-         | NAME "[" INT "]"  -> var_array_element
+         | NAME (array_index)+  -> var_array_element
+    ?array_index : "[" (INT|NAME) "]" -> array_index
     ?term_logical:  factor_logical | term_logical "||" factor_logical   -> logical_or
     ?factor_logical: atom_logical | factor_logical "&&" atom_logical -> logical_and
     ?atom_logical: "True" -> value_true | "False" -> value_false | condition | "(" term_logical ")" -> paranthesize
-                    | "!" atom_logical -> logical_neg | function_invoke
+                    | "!" atom_logical -> logical_neg | function_invoke | "*"? NAME
 
     ?assign: NAME "=" expression -> assign
          | "*" NAME  "=" expression        -> pointer_assign
          | NAME "->" NAME "=" expression    -> pointer_var_assign
-         | NAME "[" INT "]" "=" expression -> assign_array_element
+         | NAME (array_index)+ "=" expression -> assign_array_element
 
     ?if: "if" "(" expression ")" single -> statement_if 
     ?if_else: "if" "(" expression ")" [single ";" | block] "else" single -> statement_if_else
@@ -59,13 +61,20 @@ c_grammar = r"""
 
     ?function_declaration: typ function_signature single
     ?function_signature: NAME "()" -> signature_noargs | NAME "(" arg_declaration ("," arg_declaration)* ")" -> signature_args
-    ?arg_declaration:  typ NAME | typ "*" NAME | typ NAME "[]"
+    ?arg_declaration:  typ NAME | typ "*" NAME | typ NAME "[]" -> arg_declaration_array
 
     ?function_invoke: NAME ["()"| "(" ")"]  -> function_invoke_noparameters |  NAME "(" parameter_list ")"  -> function_invoke_parameters
     ?parameter_list: parameter ("," parameter)*
-    ?parameter: [expression | "*" NAME] -> parameter_simple | NAME "->" NAME -> parameter_pointer
+    ?parameter: [expression | "*" NAME] -> parameter_simple | NAME "->" NAME -> parameter_pointer | NAME "[" (INT|NAME) "]" -> parameter_array_element
 
     ?while: "while" expression single -> statement_while
+    ?for: "for" "(" for_initialize ";" for_final_condition ";" single ")" single  -> statement_for_standard 
+    ?for_initialize: NAME "=" INT
+    ?for_final_condition: NAME operator expression
+    ?increment_decrement: ("*"? NAME "++" | "++" "*"? NAME) -> expression_increment
+                        | ( "*"? NAME "--" | "--" "*"? NAME)  -> expression_decrement
+                        | "*"? NAME "+=" INT ->  expression_increment_many
+                        | "*"? NAME "-=" INT ->  expression_decrement_many
 
     ?switch: "switch" "(" switch_var ")" "{" (cases | case)+ "}"
     ?switch_var: NAME | NAME "->" NAME -> pointer_var 
@@ -112,12 +121,13 @@ class TreeToPython(Transformer):
         name = str(name1) + "." + str(name2)
         var = str(name) if name not in self.vars else name
         return var
-    def var_array_element(self, name, num): return str(name) + "[" + str(num) + "]"
+    def array_index(self, index): return '[' + str(index) + ']'
+    def var_array_element(self, *args): return str(args[0]) + ''.join([index for index in args[1:]])
     def comment(self, arg): return str(arg)
     def addsub(self, a, op, b): return str(a) + str(op) + str(b)
     def muldivmodulo(self, a, op, b): return str(a) + str(op) + str(b)
-    def logical_or(self, a, b): return str(a) + " || " + str(b)
-    def logical_and(self, a, b): return str(a) + " && " + str(b)
+    def logical_or(self, a, b): return str(a) + " or " + str(b)
+    def logical_and(self, a, b): return str(a) + " and " + str(b)
     def paranthesize(self, expression): return "(" + str(expression) + ")"
     def plus(self): return " + "
     def minus(self): return " - "
@@ -128,8 +138,8 @@ class TreeToPython(Transformer):
     def logical_neg(self, a): return " !" + str(a)
     def value_true(self): return "True"
     def value_false(self): return "False"
-    def assign(self, a, b): return a + " = " + str(b)
-    def assign_array_element(self, a, num, b): return a + "[" + str(num) + "]" + " = " + str(b)
+    def assign(self, a, b): return a + " = " + b
+    def assign_array_element(self, *args): return args[0] + ''.join([index for index in  args[1:-1]]) + " = " + args[-1]
     def pointer_assign(self, a, b): return a + " = " + str(b)
     def pointer_var_assign(self, a1, a2, b): return a1 + "." + a2 + " = " + str(b)
     def eq(self): return " == "
@@ -188,11 +198,13 @@ class TreeToPython(Transformer):
     def signature_noargs(self, name): return [name]
     def signature_args(self, *args): return [str(arg) for arg in args]
     def arg_declaration(self, typ, name): return str(name) + ' ' + str(typ)
+    def arg_declaration_array(self, typ, name): return str(name) + ' List[' + str(typ) + ']'
     def function_invoke_parameters(self, name, parameters): return str(name) + "(" + str(parameters) + ")"
     def function_invoke_noparameters(self, name): return str(name) + "()"
     def parameter_list(self, *args): return ", ".join([str(arg) for arg in args])
     def parameter_simple(self, name): return str(name)
     def parameter_pointer(self, pointer, name): return str(pointer) + "." + str(name)
+    def parameter_array_element(self, name, index): return str(name) + "[" + str(index) + "]"
     def statement_while(self, expression, statement): return "while " + expression + ": \n\t" + statement.replace("\n", "\n\t")
     def statement_break(self): return 'break'
     def statement_continue(self): return 'continue'
@@ -235,16 +247,31 @@ class TreeToPython(Transformer):
         filename = str(filename).replace('"','').replace(".h", "")
         return "import " + filename + ".py" + "\t#include " + filename + ".h"
     def statement_define(self, var, val): return str(var) + " = " + str(val)
+    def expression_increment(self, name): return str(name) + ' += 1'
+    def expression_decrement(self, name): return str(name) + ' -= 1'
+    def expression_increment_many(self, name, val): return str(name) + ' += ' + str(val)
+    def expression_decrement_many(self, name, val): return str(name) + ' -= ' + str(val)
+    def statement_for_standard(self, initial, terminal_condition, stepper, stmt):
+        stepper = str(stepper)
+        if stepper[-5:] == ' += 1' or '=' not in stepper: step = ''
+        elif stepper[-5:] ==  ' -= 1': step = ', -1'
+        else:
+            step = stepper.split("=")[1]
+            if '+' in stepper: step = ',' + step.strip()
+            elif '-' in stepper: step = ', -' + step.strip()
+        return 'for ' + str(initial[0]) + ' in range(' + str(initial[1]) + ", " + str(terminal_condition[2]) + step + "):\n\t" + stmt
+    def for_initialize(self, var, val): return [var, val]
+    def for_final_condition(self, var, operator, expr): return [str(var), str(operator), str(expr)]
 
 c_parser = Lark(c_grammar, parser='earley', lexer='standard')
 
 def parse(x): return TreeToPython().transform(c_parser.parse(x))
 def pretty(x): return c_parser.parse(x).pretty()
 def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2",pattern_c_strcmp.sub(r"\1 == \2", stmt))))
-def prnt(stmt): print("C statement: %s \nPython statement:\n%s" % (stmt, parse(preprocess(stmt))))
+def prnt(stmt): print("C statement: %s \nPython statement:\n%s" % (stmt, parse(preprocess(stmt))))  # print("C statement: %s\ntree\n%s \nPython statement:\n%s" % (stmt, pretty(stmt), parse(stmt)))
 
 if __name__ == '__main__':
-    for stmt in samples: prnt(stmt)  # senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal\\', 'I:\\VBtoPython\\Amarakosha\\Semantic\\'
+    for stmt in samples: prnt(stmt)
 
     # senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal', 'I:\\VBtoPython\\Amarakosha\\Semantic'
     # for fil in [os.path.join(semantic, 'FINDVERB.C')]: #'VIBMENU.C', os.path.join(senAnal + 'SYNTAX.H'),
