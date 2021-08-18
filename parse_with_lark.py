@@ -7,13 +7,13 @@ c_grammar = r"""
     ?start: statement
 
     ?statement: single | multiple 
-    ?single: expression | assign | if | if_else | empty | comment | var_declarations | function_declaration | while
+    ?single: assign | expression  | if | if_else | empty | comment | var_declarations | function_declaration | while
             | "break" -> statement_break | "continue" -> statement_continue | block | switch | typedef 
             | "return" expression -> statement_return | "#include" filename -> statement_include | "#define" NAME defineval -> statement_define 
             | for
 
     ?expression: term | literal | term_logical | function_invoke  | increment_decrement
-    ?literal: /'.*?'/ | /".*?"/
+    ?literal: /'.*?'/ | /".*?"/ | /"[\s\S ]*?"/ |/'[\s\S ]*?'/
 
     ?term: factor | term plusminus factor   -> addsub
     ?plusminus: "+" -> plus | "-" -> minus
@@ -23,28 +23,23 @@ c_grammar = r"""
 
     ?atom: INT | FLOAT 
          | "-" atom         -> neg
-         | NAME             -> var
-         | "*" NAME         -> var
-         | NAME "->" NAME   -> pointer_var
+         | nam
          | "(" term ")"      -> paranthesize
-         | NAME (array_index)+  -> var_array_element
-    ?array_index : "[" (INT|NAME) "]" -> array_index
+    ?nam : "*"? NAME -> var | "*"? NAME (array_index)+ -> var_array_element | nam ("->" nam)+   -> pointer_var
+    ?array_index : "[" (INT|nam) "]" -> array_index
     ?term_logical:  factor_logical | term_logical "||" factor_logical   -> logical_or
     ?factor_logical: atom_logical | factor_logical "&&" atom_logical -> logical_and
     ?atom_logical: "True" -> value_true | "False" -> value_false | condition | "(" term_logical ")" -> paranthesize
                     | "!" atom_logical -> logical_neg | function_invoke | "*"? NAME
 
-    ?assign: NAME "=" expression -> assign
-         | "*" NAME  "=" expression        -> pointer_assign
-         | NAME "->" NAME "=" expression    -> pointer_var_assign
-         | NAME (array_index)+ "=" expression -> assign_array_element
+    ?assign: nam "=" expression -> assign
 
-    ?if: "if" "(" expression ")" single -> statement_if 
+    ?if: "if" "(" condition ")" single -> statement_if 
     ?if_else: "if" "(" expression ")" [single ";" | block] "else" single -> statement_if_else
     ?block: "{" single ( [ ";" | block] single)*  "}"
     ?multiple: single ( [";" | block] single)* 
     ?empty: (";")*
-    ?condition: expression operator expression 
+    ?condition: expression operator expression -> condition | expression -> condition_expression | nam "=" expression -> condition_assigned
     ?operator: "==" -> eq | "!=" -> ne | ">=" -> ge | "<=" -> le | ">" -> gt | "<" -> lt
     ?negation: "!"
 
@@ -76,8 +71,7 @@ c_grammar = r"""
                         | "*"? NAME "+=" INT ->  expression_increment_many
                         | "*"? NAME "-=" INT ->  expression_decrement_many
 
-    ?switch: "switch" "(" switch_var ")" "{" (cases | case)+ "}"
-    ?switch_var: NAME | NAME "->" NAME -> pointer_var 
+    ?switch: "switch" "(" nam ")" "{" (cases | case)+ "}"
     ?case: "case" value ":" multiple | "default" ":" multiple -> case_default
     ?cases: "case" value ":" ("case" value ":")+ multiple -> cases 
     ?value: INT | FLOAT | literal
@@ -117,10 +111,7 @@ class TreeToPython(Transformer):
     def var(self, name):
         var = str(name) if name not in self.vars else name
         return var
-    def pointer_var(self, name1, name2):
-        name = str(name1) + "." + str(name2)
-        var = str(name) if name not in self.vars else name
-        return var
+    def pointer_var(self, *names): return '.'.join(name for name in names)
     def array_index(self, index): return '[' + str(index) + ']'
     def var_array_element(self, *args): return str(args[0]) + ''.join([index for index in args[1:]])
     def comment(self, arg): return str(arg)
@@ -139,9 +130,7 @@ class TreeToPython(Transformer):
     def value_true(self): return "True"
     def value_false(self): return "False"
     def assign(self, a, b): return a + " = " + b
-    def assign_array_element(self, *args): return args[0] + ''.join([index for index in  args[1:-1]]) + " = " + args[-1]
-    def pointer_assign(self, a, b): return a + " = " + str(b)
-    def pointer_var_assign(self, a1, a2, b): return a1 + "." + a2 + " = " + str(b)
+    # def assign_array_element(self, *args): return args[0] + ''.join([index for index in  args[1:-1]]) + " = " + args[-1]
     def eq(self): return " == "
     def ne(self): return " != "
     def ge(self): return " >= "
@@ -149,6 +138,8 @@ class TreeToPython(Transformer):
     def gt(self): return " > "
     def lt(self): return " < "
     def condition(self, exprLHS, operator, exprRHS): return str(exprLHS) + str(operator) + str(exprRHS)
+    def condition_assigned(self, nam, value): return str(value)
+    def condition_expression(self, expr): return str(expr)
     def statement_if(self, expression, statement):
         return "if " + expression + ": " + statement.replace("\n", "\n\t")
         # pat, itervar = re.compile('\s*!=\s*NULL'), statement.split(" = ")[0]
@@ -267,14 +258,13 @@ c_parser = Lark(c_grammar, parser='earley', lexer='standard')
 
 def parse(x): return TreeToPython().transform(c_parser.parse(x))
 def pretty(x): return c_parser.parse(x).pretty()
-def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2",pattern_c_strcmp.sub(r"\1 == \2", stmt))))
+def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strncpy.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2", (pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 \3 \2", stmt))))))
 def prnt(stmt): print("C statement: %s \nPython statement:\n%s" % (stmt, parse(preprocess(stmt))))  # print("C statement: %s\ntree\n%s \nPython statement:\n%s" % (stmt, pretty(stmt), parse(stmt)))
-
 if __name__ == '__main__':
     for stmt in samples: prnt(stmt)
-
+        # print('regex_strncpy->%s'%pattern_star_slash.sub("*/;", pattern_c_strncpy.sub(r"\1 = \2[\4][:\5]", pattern_c_strcpy.sub(r"\1 = \2", (pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 \3 \2", stmt)))))))
     # senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal', 'I:\\VBtoPython\\Amarakosha\\Semantic'
-    # for fil in [os.path.join(semantic, 'FINDVERB.C')]: #'VIBMENU.C', os.path.join(senAnal + 'SYNTAX.H'),
+    # for fil in [os.path.join(semantic, 'COMPAT.C'), os.path.join(semantic, 'FINDVERB.C'), os.path.join(semantic, 'VIBMENU.C'), os.path.join(senAnal, 'SYNTAX.H')]:
     #     f = open(fil) #codecs.open("VIBMENU.C", encoding="utf-8")
     #     csource = f.readlines()
     #     f.close()

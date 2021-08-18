@@ -116,7 +116,7 @@ stmt_while_complex3 = "while(1){" \
 stmt_include = "#include <stdio.h>\n"
 stmt_include2 = '#include "sengen1.h"\n'
 stmt_include3 = '#include "data.h"\n'
-stmt_define = "#define KARTHARI    0; #define KARMANI     1; #define FULLSTOP  'ê'; #define eof       255"
+stmt_define = "#define KARTHARI    0 #define KARMANI     1 #define FULLSTOP  'ê' #define eof       255"
 stmt_typedef = "typedef struct { int vibhakti[20]; int vacana[20]; int linga[20]; int purusha[20]; unsigned char *subanta[20]; unsigned char *pratipadika[20]; unsigned char *erb[20];         /* End Removed Base */; int wordNum[20]; int numofNouns; } SUBANTA_DATA;"
 stmt_typedef_many = "typedef struct { int vibhakti[20]; int vacana[20]; int linga[20]; int purusha[20]; unsigned char *subanta[20]; unsigned char *pratipadika[20]; unsigned char *erb[20];         /* End Removed Base */; int wordNum[20]; int numofNouns; } SUBANTA_DATA;  typedef struct { int dhatuVidha[10]; int prayoga[10]; int lakara[10]; int purusha[10]; int vacana[10]; int gana[10]; int padi[10]; int karma[10]; int it[10]; unsigned char *tiganta[10]; unsigned char *dhatu[10]; unsigned char *nijdhatu[10]; unsigned char *sandhatu[10]; unsigned char *artha[10]; unsigned char *err[10];    /* End Removed Root */; int wordNum[10]; int numofVerbs; } TIGANTA_DATA;  typedef struct { int vibhakti[20]; int vacana[20]; int linga[20]; int prayoga[20]; int krdType[20]; int dhatuVidha[20]; int purusha[20]; int gana[20]; int padi[20]; int karma[20]; int it[20]; unsigned char *krdanta[20]; unsigned char *pratipadika[20]; unsigned char *erb[20];            /* end removed base of krdanta */; unsigned char *dhatu[20]; unsigned char *nijdhatu[20]; unsigned char *sandhatu[20]; unsigned char *artha[20]; int wordNum[20]; int numofKrdantas; } KRDANTA_DATA;  typedef struct { unsigned char *avyaya[30]; int wordNum[30]; int numofAvyayas; } AVYAYA_DATA;  typedef struct { int dhatuVidha[20]; int gana[20]; int padi[20]; int karma[20]; int it[20]; int krdavType[20]; unsigned char *krdavyaya[20]; unsigned char *dhatu[20]; unsigned char *nijdhatu[20]; unsigned char *sandhatu[20]; unsigned char *artha[20]; int wordNum[20]; int numofKrdavyayas; } KRDAV_DATA;  typedef struct { unsigned char *word[20]; int vibhakti[20]; int vacana[20]; int purusha[20]; int linga[20]; int wordPos[20]; int numofWords; } VIBHAKTI;  typedef struct { unsigned char *verb; unsigned char *dhatu; int purusha; int vacana; int prayoga; int karma; int wordPos; } VERB;  typedef struct { unsigned char *krdanta; int vibhakti; int vacana; int linga; int prayoga; int karma; int krdType; } PARTICIPLE;  typedef struct { unsigned char *sentence; unsigned char *idens[100]; int numofIdens; } RECORD;  typedef struct { unsigned char *iden[30]; int numofIdens; } WORD;  typedef struct { unsigned char *word[15]; int numofWords; } TYPE;"
 stmt_var_decl_array = "unsigned char list[]={'ÈÞÏèÔÚÁèØ', '¤ÈÏÚÁèØ', 'ÄÛÆ', 'ÏÚÂèÏÛ', '¤ØåÏÚÂèÏ', '×ÈèÂÚØ', 'È³èÖ', 'ÌÚ×', '×¢ÔÂè×Ï'};"
@@ -151,11 +151,122 @@ stmt_func_def_complex3 = 'int findverb(unsigned char voice[],unsigned char *Word
                  'for(i=0;i<vno;i++) free(words[i]);  return found; } else if(type=="4" && tvibptr->stype=="4" && strcmp(Word,words[1])==0) ' \
                  '{  found=dispmea(voice,vnum,list,tvibptr,ltype,lword);  for(i=0;i<vno;i++) free(words[i]);  return found; } ' \
                  'for(i=0;i<vno;i++)  free(words[i]);};'
+stmt_assignment_and_condition = 'a = b; message = "×ÌÔáÂ£"; if(c=fgetc(cfp)!=eof) x = y'
+stmt_multilevel_indices_pointers = 'substr=strstr(word[karptr->sub_no],krdrecord->code[m])'
+stmt_includes_defines_others = '#include <stdio.h> #include <string.h> #include <stdlib.h> #include <conio.h> #include <alloc.h> #include "data.h" #include "declr.h" #define eof 255 int CheckComptability(DETAIL *srecord,DETAIL *krecord,DETAIL *vrecord,DETAIL *krdfirst,DETAIL *krdavy,unsigned char *sent,SHASTI *fshtptr,FILE *rfp,FILE *afp,FILE *sfp,int y) { int a=0,i=0,j=0,m=0,n=0,no_vsub=0,no_ksub=0,num_sub,Naflag=0; int flag=1,krdflag=0,krdavyf=0,verflag=0,karflag=0,shaflag=0; int krdmismatch=0,mismatch=0,krdpos,avypos,Saflag=0,Sapos; int krdoth=0,no_krdoth,krdsuc=1,subver=0; long afppos,pos; unsigned char c,line[500],*word[15],temp[150],*substr,temp1[30],temp2[30]; char code1[5],code2[5]; FILE *cfp; DETAIL *firstptr=NULL,*subptr=NULL,*fstptr=NULL,*subunmatch; DETAIL *karptr=NULL,*un_match=NULL,*karmatch=NULL; DETAIL *verptr=NULL,*krdrecord=NULL,*krdunmatch=NULL,*krdmatch=NULL,*avyrecord=NULL; SHASTI *shrvib=NULL,*tshrvib=NULL;int a=0,i=0,j=0,m=0,n=0,no_vsub=0,no_ksub=0,num_sub,Naflag=0; int flag=1,krdflag=0,krdavyf=0,verflag=0,karflag=0,shaflag=0; int krdmismatch=0,mismatch=0,krdpos,avypos,Saflag=0,Sapos; int krdoth=0,no_krdoth,krdsuc=1,subver=0; long afppos,pos; unsigned char c,line[500],*word[15],temp[150],*substr,temp1[30],temp2[30]; char code1[5],code2[5]; FILE *cfp; DETAIL *firstptr=NULL,*subptr=NULL,*fstptr=NULL,*subunmatch; DETAIL *karptr=NULL,*un_match=NULL,*karmatch=NULL; DETAIL *verptr=NULL,*krdrecord=NULL,*krdunmatch=NULL,*krdmatch=NULL,*avyrecord=NULL; SHASTI *shrvib=NULL,*tshrvib=NULL; cfp=fopen("comptble.aci","r"); if(cfp== NULL) exit(0); firstptr=srecord; subptr=srecord; fstptr=srecord; while(1) { if(strcmp(subptr->word,"Æ")==0) Naflag=1; else if(strcmp(subptr->word,"×Ø")==0) { Saflag=1; Sapos=subptr->pos; } if(subptr->next != NULL) subptr=subptr->next; else break; } subptr=srecord; karptr=krecord; verptr=vrecord; krdrecord=krdfirst; avyrecord=krdavy; krdpos=0;if(krdfirst != NULL) { if(strcmp(krdrecord->Type,"Krdanta")==0 || strcmpi(krdrecord->specf,"Subject")==0) { krdflag=1; krdpos=krdrecord->pos; } } if(krdavy != NULL) { if(strcmpi(krdavy->Type,"Krdavyaya")==0) krdavyf=1; } verflag=0; while(verptr != NULL) { if(strcmp(verptr->dispSpecf,"Verb")==0) verflag=1; if(verptr->next == NULL) break; verptr=verptr->next; } verptr=vrecord;while(1) { if(karptr != NULL && krdflag==0 && krdavyf==0) { if(karptr->sub_no != 7 && (karptr->pos != Sapos-1)) no_vsub++; if(karptr->next != vrecord) karptr=karptr->next; else break; } else if(karptr != NULL && verflag==1 && krdflag==1) { if(karptr->sub_no != 6) { if (karptr->pos > krdfirst->pos ) no_vsub++; else if(strcmp(krdfirst->specf,"Subject")!=0) no_vsub++; } else if(karptr->sub_no == 6) { if (karptr->pos != krdfirst->pos-1 ) no_vsub++; else if(strcmp(krdfirst->specf,"Subject")!=0) no_vsub++; } if(karptr->next != krdfirst) karptr=karptr->next; else break; } else if(karptr != NULL && verflag==1 && krdavyf==1) { if (karptr->pos > krdavy->pos) no_vsub++; if(karptr->next != krdavy) karptr=karptr->next; else break; } else break; }fprintf(rfp,"%s \n",sent); karptr=krecord; if(fshtptr==NULL) { while(1) { fprintf(rfp,"%s ", subptr->Type); if(strcmp(subptr->Type,"Noun")==0 || strcmp(subptr->Type,"Krdanta")==0 ) fprintf(rfp,"%s",subptr->specf); fprintf(rfp," : %s",subptr->word); fprintf(rfp,"\n"); if(subptr->next != NULL) subptr=subptr->next; else break; } subptr=srecord; shaflag=0; } else { sha_disp(subptr,sent,rfp); shaflag=1; }fprintf(rfp,"\n-------------------\n");  karptr=krecord;  subptr=srecord;  if(vrecord==NULL)   vrecord=krdfirst;  verptr=vrecord;}'
+stmt_multilevel_pointers_indices_and_assigned_conditions = 'while(strcmpi(srecord->specf,"subject")==0 && strcmpi(srecord->Type,"Noun")==0) { if(krdflag==1) { for(m=0;m<(krdrecord->no_base);m++) ' \
+                 '{ num_sub=no_ksub; karflag=0; un_match=NULL; if(karptr != NULL) { while(1) { if(strcmp(krdrecord->specf,"Subject")==0) ' \
+                 '{ if(karptr->pos < krdrecord->pos && karptr != NULL ) { if(karptr->sub_no != 6) karflag++; } } ' \
+                 'if(strcmpi(karptr->next->Type,"Krdanta")==0 ||strcmpi(karptr->next->Type,"Krdavyaya")==0 ) break; else karptr=karptr->next; } } krdoth=0; no_krdoth=0; ' \
+                 'while(1) { if(strcmpi(krdrecord->specf,"Subject") !=0 ) { if(strcmpi(krdrecord->Type,"Krdanta") ==0 ) { no_krdoth++; krdoth++; } } ' \
+                 'if(strcmpi(krdrecord->next->Type,"Krdanta") !=0 || krdrecord->next == NULL) break; else krdrecord=krdrecord->next; } krdrecord=krdfirst; ' \
+                 'for(n=0;n<srecord->no_base;n++) { num_sub=no_ksub; rewind(cfp); mismatch=0; krdmismatch=0; while( (c=fgetc(cfp)) != eof) { ungetc(c,cfp); fgets(line,150,cfp);' \
+                 ' if(line[0]=="\n") continue; j=split(line,word); strncpy(code1,line,2); code1[2]="\0"; karptr=krecord; krdrecord=krdfirst; ' \
+                 'if(strcmp(srecord->code[n],code1)==0 ) { if(strcmp(krdrecord->Type,"Krdanta")==0 ) ' \
+                 '{ if((strcmpi(srecord->voice,"kartari") == 0 && srecord->linga==krdrecord->linga && srecord->vibvach==krdrecord->vibvach) || ' \
+                 'strcmpi(srecord->voice,"karmani") == 0 ) { strncpy(code2,line+3,2); code2[2]="\0"; karptr=krecord; if(karflag==0 && strcmp(code2,"00")==0) ' \
+                 '{ substr=strstr(word[1],krdrecord->code[m]); if(substr) mismatch=0; else mismatch=1; } else { if(karptr != NULL) { ' \
+                 'while(1) { if((karptr->pos < krdrecord->pos) && karptr!= NULL && strcmp(karptr->code[0],code2)==0) { if(karptr->sub_no !=6 ) {' \
+                 ' substr=strstr(word[karptr->sub_no],krdrecord->code[m]); if(substr) { mismatch=0; karflag--; } else {' \
+                 ' mismatch=1; krdunmatch=krdrecord; un_match=karptr; } } } if(strcmpi(karptr->next->Type,"Krdanta")==0) break; else karptr=karptr->next; } } } } } } ' \
+                 'if(krdoth) { strncpy(code2,line+3,2); code2[2]="\0"; if(karptr != NULL) { while(1) { while(1) { if(krdrecord->sub_no !=6) {' \
+                 ' if(strcmpi(krdfirst->specf,"Subject") != 0 && karptr->pos < krdrecord->pos) { } ' \
+                 'if(strcmp(karptr->code[0],code1)==0 && strcmp(code2,"00")==0 && strcmp(karptr->specf,krdrecord->specf)==0 && krdrecord->matnoun==1 && ' \
+                 '(karptr->pos == krdrecord->pos +1)) { substr=strstr(word[karptr->sub_no],krdrecord->code[m]); ' \
+                 'if(substr && krdmismatch==0) { no_krdoth--; krdmatch=krdrecord; karmatch=karptr; } else if(!substr) { krdmismatch=1; krdunmatch=krdrecord; ' \
+                 'karmatch=karptr; } break; } else if(krdrecord->matnoun != 1) { ' \
+                 'if((strcmp(code1,"AA")==0 && strcmp(code2,"00")==0 ) && strcmp(krdrecord->specf,"Subject") !=0) { ' \
+                 'substr=strstr(word[1],krdrecord->code[m]); if(substr && krdmismatch==0) { no_krdoth--; krdmatch=krdrecord; } else if(!substr) { krdmismatch=1; ' \
+                 'krdunmatch=krdrecord; } } } } if(krdrecord->sub_no ==6) { shrvib=fshtptr ; while(strcmp(krdrecord->word,shrvib->word) !=0) shrvib=shrvib->next; ' \
+                 'if(strcmp(shrvib->next->code[0],code1)==0 && strcmp(code2,"00")==0 && strcmp(karptr->specf,krdrecord->specf)==0) { ' \
+                 'substr=strstr(word[1],krdrecord->code[m]); if(substr && krdmismatch==0) { no_krdoth--; krdmatch=krdrecord; karmatch=karptr; } else if(!substr) { ' \
+                 'krdmismatch=1; krdunmatch=krdrecord; karmatch=karptr; } break; } } krdrecord=krdrecord->next; if(strcmp(krdrecord->Type,"Krdanta") !=0) break; ' \
+                 'if(krdrecord->next == NULL) break; } krdrecord=krdfirst; if(strcmpi(karptr->next->Type,"krdanta")==0) break; else karptr=karptr->next; } } else {' \
+                 ' while(strcmp(krdrecord->Type,"Verb") !=0 || krdrecord->next != NULL) { if(krdrecord->sub_no !=6) { ' \
+                 'if((strcmp(code1,"AA")==0 && strcmp(code2,"00")==0 ) && strcmp(krdrecord->specf,"Subject") !=0) { substr=strstr(word[1],krdrecord->code[m]); ' \
+                 'if(substr && krdmismatch==0) { no_krdoth--; krdmatch=krdrecord; } else if(!substr) { krdmismatch=1; krdunmatch=krdrecord; } } } krdrecord=krdrecord->next;' \
+                 ' } } } for(i=0;i<j;i++) free(word[i]); } if(Naflag==0) { if(verflag==0) { if(!krdoth ) { if(mismatch==0 && karflag==0) { krdsuc=1; flag=1; ' \
+                 'fprintf(rfp,"The Krdanta is Semantically Compatible if %s root means %s and subject is %s ",krdfirst->stem,krdfirst->base[m],srecord->base[n]); } else {' \
+                 ' krdsuc=0; flag=0; fprintf(rfp,"Verb %s is not compatible with subject %s",verptr->word,srecord->word); ' \
+                 'if(un_match != NULL) fprintf(rfp,"if %s is %s",un_match->dispSpecf,un_match->word); } } else if(krdoth) { if(mismatch==0 && karflag==0 && no_krdoth==0) ' \
+                 '{ krdsuc=1; flag=1; if(karptr != NULL) fprintf(rfp,"%s %s %s is compatible with %s %s %s",karmatch->Type,karmatch->specf,karmatch->word,krdmatch->Type,' \
+                 'krdmatch->specf,krdmatch->word); else fprintf(rfp,"%s %s %s is semantically compatible",krdmatch->Type,krdmatch->specf,krdmatch->word); ' \
+                 'fprintf(rfp,"The Krdanta is Semantically Compatible if %s root means %s and subject is %s ",krdfirst->stem,krdfirst->base[m],srecord->base[n]); } ' \
+                 'else if((mismatch || karflag) && ! no_krdoth) { krdsuc=0; flag=0; ' \
+                 '/*fprintf(rfp,"Verb %s is not compatible with subject %s\n",verptr->word,srecord->word);*/ ' \
+                 'if(mismatch) fprintf(rfp,"%s %s %s is not compatble with %s is %s",krdunmatch->Type,krdunmatch->specf,krdunmatch->word,un_match->dispSpecf,un_match->word);' \
+                 ' } else if(krdmismatch==1) { krdsuc=0; flag=0; fprintf(rfp,"%s %s %s is not compatible with %s %s %s if Krdanta base is %s ",karmatch->Type,' \
+                 'karmatch->specf,karmatch->word,krdunmatch->Type,krdunmatch->specf,krdunmatch->word,krdunmatch->base[0]); ' \
+                 'if(un_match != NULL) fprintf(rfp,"if %s is %s ",un_match->dispSpecf,un_match->word); } } } if(verflag==1) { if(!krdoth ) { if(mismatch==0 && karflag==0) ' \
+                 '{ krdsuc=1; fprintf(rfp,"The Krdanta is Semantically Compatible if %s root means %s and subject is %s ",krdfirst->stem,krdfirst->base[m],srecord->base[n])' \
+                 '; } else { krdsuc=0; fprintf(rfp,"Verb %s is not compatible with subject %s ",verptr->word,srecord->word); ' \
+                 'if(un_match != NULL) fprintf(rfp,"if %s is %s ",un_match->dispSpecf,un_match->word); } } else if(krdoth) { if(mismatch==0 && karflag==0 && no_krdoth==0) ' \
+                 '{ krdsuc=1; if(krdmatch->matnoun==1) { if(karptr != NULL ) fprintf(rfp,"%s %s %s is compatible with %s %s %s ",karmatch->Type,' \
+                 'karmatch->specf,karmatch->word,krdmatch->Type,krdmatch->specf,krdmatch->word); } ' \
+                 'else fprintf(rfp,"%s %s %s is semantically compatible ",krdmatch->Type,krdmatch->specf,krdmatch->word); if(strcmp(krdfirst->Type,"Subject")==0) ' \
+                 'fprintf(rfp,"The Krdanta is Semantically Compatible if %s root means %s and subject is %s ",krdfirst->stem,krdfirst->base[m],srecord->base[n]); } ' \
+                 'else if((mismatch || karflag) && ! no_krdoth) { krdsuc=0; if(mismatch) fprintf(rfp,"%s %s %s is not compatble with Noun Subject if %s is %s ",' \
+                 'krdunmatch->Type,krdunmatch->specf,krdunmatch->word,un_match->dispSpecf,un_match->word); } else if(krdmismatch==1) { krdsuc=0; ' \
+                 'fprintf(rfp,"%s %s %s is not compatible with %s %s %s if Krdanta base is %s ",karmatch->Type,karmatch->specf,karmatch->word,krdunmatch->Type,' \
+                 'krdunmatch->specf,krdunmatch->word,krdunmatch->base[0]); if(un_match != NULL) fprintf(rfp,"if %s is %s ",un_match->dispSpecf,un_match->word); } } } } ' \
+                 'if(Naflag==1) { krdsuc=1; flag=1; } } } } if(krdavyf==1) { for(m=0;m<(avyrecord->no_base);m++) { num_sub=no_ksub; karflag=0; un_match=NULL; ' \
+                 'while(1) { if((karptr->pos < avyrecord->pos) && karptr!= NULL) karflag++; if(strcmpi(karptr->next->Type,"Krdavyaya")==0 ) break; else karptr=karptr->next; }' \
+                 ' krdrecord=krdfirst; for(n=0;n<srecord->no_base;n++) { num_sub=no_ksub; rewind(cfp); mismatch=0; krdmismatch=0; ' \
+                 'while( (c=fgetc(cfp)) != eof) { ungetc(c,cfp); fgets(line,150,cfp); if(line[0]=="\n") continue; j=split(line,word); strncpy(code1,line,2); code1[2]="\0"; ' \
+                 'karptr=krecord; if(strcmp(srecord->code[n],code1)==0 ) { if(strcmp(avyrecord->Type,"Krdavyaya")==0) { strncpy(code2,line+3,2); code2[2]="\0"; ' \
+                 'karptr=krecord; if(karflag==0 && strcmp(code2,"00")==0) { substr=strstr(word[1],verptr->code[m]); if(substr) mismatch=0; else mismatch=1; } else { ' \
+                 'while(1) { if((karptr->pos < avyrecord->pos) && karptr!= NULL && strcmp(karptr->code[0],code2)==0) { substr=strstr(word[karptr->sub_no],avyrecord->code[m]' \
+                 '); if(substr) { mismatch=0; karflag--; } else { mismatch=1; un_match=karptr; } } if(strcmpi(karptr->Type,"Noun") !=0) break; else karptr=karptr->next; } }' \
+                 ' } } for(i=0;i<j;i++) free(word[i]); } if(Naflag==0) { if(!krdoth) { if(mismatch==0 && karflag==0) { krdsuc=1; ' \
+                 'fprintf(rfp,"The Krdavyaya is Semantically Compatible if %s root means %s and subject is %s ",krdavy->stem,krdavy->base[m],srecord->base[n]); } else { ' \
+                 'krdsuc=0; fprintf(rfp,"Verb %s is not compatible with subject %s ",verptr->word,srecord->word); if(un_match != NULL) ' \
+                 'fprintf(rfp,"if %s is %s ",un_match->dispSpecf,un_match->word); } } } } } } if(verflag==1) { subver=1; while(strcmpi(verptr->specf,"Verb")==0) ' \
+                 '{ if(strcmpi(verptr->dispSpecf,"Verb") ==0 || strcmpi(verptr->dispSpecf,"Krdanta") ==0) { for(m=0;m<(verptr->no_base);m++) ' \
+                 '{ num_sub=no_vsub; if(verptr->code[m][0] != "\0") { for(n=0;n<srecord->no_base;n++) { num_sub=no_vsub; rewind(cfp); karmatch=NULL; ' \
+                 'while( (c=fgetc(cfp)) != eof) { ungetc(c,cfp); fgets(line,150,cfp); if(line[0]=="\n") continue; karptr=krecord; j=0; j=split(line,word); ' \
+                 'strncpy(code1,line,2); code1[2]="\0"; strncpy(code2,line+3,2); code2[2]="\0"; if(shaflag==0) { if(strcmp(srecord->code[n],code1)==0) ' \
+                 '{ if(strcmp(code2,"00")==0) { if(strcmp(srecord->code[n],code1)==0) { substr=strstr(word[1],verptr->code[m]); if(substr) ' \
+                 '{ if(subver) subver=1; else subver=0; } else { subunmatch=srecord; subver=0; } } } ' \
+                 'if(strcmp(code2,"00")==0 && (karptr==NULL || no_vsub==0)) { substr=strstr(word[1],verptr->code[m]); if(substr) flag=0; else flag=1; ' \
+                 'if(krdflag) { if(!krdsuc && !flag) flag=0; if(krdsuc && !flag) flag=1; if(krdsuc && flag) flag=1; } } else if(krdflag==0 ) ' \
+                 '{ while(strcmpi(karptr->specf,"Verb")!=0 && krecord != NULL) { if(strcmp(karptr->code[0],code2)==0 && Saflag==0) ' \
+                 '{ substr=strstr(word[karptr->sub_no],verptr->code[m]); if(substr) { karmatch=karptr; num_sub--; } else un_match=karptr; } ' \
+                 'if(strcmp(karptr->code[0],code2)==0 && Saflag==1) { substr=strstr(word[karptr->sub_no],verptr->code[m]); ' \
+                 'if(substr) { karmatch=karptr; num_sub--; } else un_match=karptr; } karptr=karptr->next; } } else if(krdflag && no_vsub) ' \
+                 '{ while(strcmpi(karptr->specf,"Verb") !=0 && krecord != NULL) { if(strcmp(karptr->code[0],code2)==0) { ' \
+                 'if((karptr->pos > krdpos && strcmp(krdfirst->specf,"Subject")==0)|| strcmp(krdfirst->specf,"Subject")!=0 ) {' \
+                 ' substr=strstr(word[karptr->sub_no],verptr->code[m]); if(substr) { karmatch=karptr; num_sub--; } else un_match=karptr; } } ' \
+                 'karptr=karptr->next; } } } } else if(shaflag==1) { ' \
+                 'while(strcmpi(karptr->specf,"Verb") !=0 && strcmpi(karptr->specf,"Krdanta") !=0 && strcmpi(karptr->specf,"Krdavyaya") !=0 && krecord != NULL) {' \
+                 ' strncpy(code2,line+3,2); code2[2]="\0"; if(strcmp(code2,"00")==0) { if(strcmp(srecord->code[n],code1)==0) { ' \
+                 'substr=strstr(word[1],verptr->code[m]); if(substr) { if(subver) subver=1; else { subunmatch=srecord; subver=0; } } else { ' \
+                 'subunmatch=srecord; subver=0; } } } if(karptr->sub_no==6 ) { shrvib=fshtptr ; while(strcmp(karptr->word,shrvib->word) !=0) shrvib=shrvib->next; ' \
+                 'if(strcmp(code1,shrvib->code[0])==0 && strcmp(code2,shrvib->next->code[0])==0 ) { if(strcmp(word[6],"*")==0) {' \
+                 ' karmatch=karptr; num_sub--; } else un_match=karptr; } } else if(karptr->sub_no < 6 && strcmp(srecord->code[n],code1)==0 ) { ' \
+                 'if(strcmp(karptr->code[0],code2)==0 && karptr->pos > krdpos ) { substr=strstr(word[karptr->sub_no],verptr->code[m]); if(substr) { ' \
+                 'karmatch=karptr; num_sub--; } else un_match=karptr; } } karptr=karptr->next; } } if(strcmp(code2,"00")==0 && Saflag==1) {' \
+                 ' subptr=fstptr; while(1) { if(strcmp(subptr->Type,"Noun")==0 && strcmp(subptr->specf,"Instrument")==0 && (subptr->pos == (Sapos -1)) ) {' \
+                 ' if(strcmp(subptr->code[n],code1)==0) { substr=strstr(word[1],verptr->code[m]); if(substr) { if(subver) subver=1; else { ' \
+                 'subunmatch=srecord; subver=0; } } else { subunmatch=srecord; subver=0; } } } if(subptr->next == NULL) break; else subptr=subptr->next; } } ' \
+                 'for(i=0;i<j;i++) free(word[i]); } if(Naflag==0) { if(num_sub==0 && subver) { flag=1; ' \
+                 'fprintf(rfp,"The Verb %s is Semantically Compatible With Subject if Verb Root means %s ",verptr->stem,verptr->base[m]); ' \
+                 'if(no_vsub) fprintf(rfp,"and %s is %s ",karmatch->specf,karmatch->base[m]); } else if(subver==0) { flag=0; ' \
+                 'fprintf(rfp,"The Verb %s is not compatible with the Subject ",verptr->word); } else if(num_sub && subver) { flag=0; ' \
+                 'fprintf(rfp,"The Verb %s is not compatible with Subject if %s is %s ",verptr->word,un_match->specf,un_match->stem); } if(krdflag) {' \
+                 ' if(krdsuc==1 && flag==1) flag=1; if(krdsuc==0 ||flag==0) flag=0; } } else if(Naflag==1) flag=1; } if(verptr->no_base > 1) { afppos=ftell(afp); ' \
+                 'y=Sabdabodha(afp,sfp,rfp,firstptr,sent,flag,y,pos,Saflag,verptr->base[m],m); fseek(afp,afppos,0); pos=ftell(rfp); fseek(rfp,pos,0); } } ' \
+                 'if(verptr->no_base == m+1 && verptr->no_base > 1) { while(!feof(afp)) { fgets(line,499,afp); if(line[0]=="-") break; } } } ' \
+                 'if(verptr->next==NULL) break; else verptr=verptr->next; } } } srecord=srecord->next; } if(flag==1) ' \
+                 'fprintf(rfp,"\nThe Sentence is Semantically Compatible"); else fprintf(rfp,"\nThe Sentence is Semantically Not Compatible"); ' \
+                 'fprintf(rfp,"\n-------------------\n"); if(fshtptr != NULL) { shrvib=fshtptr; tshrvib=shrvib; while(fshtptr->next != NULL) {' \
+                 ' while(shrvib->next != NULL) { tshrvib=shrvib; shrvib=shrvib->next; } free(shrvib->specf); free(shrvib->word); for(i=0;i<shrvib->no_base;i++) {' \
+                 ' free(shrvib->base[i]); free(shrvib->code[i]); } free(shrvib); tshrvib->next=NULL; shrvib=fshtptr; } free(shrvib->specf); free(shrvib->word); ' \
+                 'for(i=0;i<fshtptr->no_base;i++) { free(fshtptr->base[i]); free(fshtptr->code[i]); } free(fshtptr); }'
+samples = [stmt_comment, stmt_var_decl_initialized, stmt_var_decl_array, stmt_assignment, stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_func_def_complex1, stmt_func_def_complex2, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_if_assign4, stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22, stmt_switch_case3, stmt_while, stmt_if_while_complex1, stmt_while_complex2, stmt_while_complex3, stmt_define, stmt_include, stmt_include2, stmt_include3, stmt_typedef_many, stmt_func_def_vibmenu_full, stmt_increment_decrement, stmt_for, stmt_func_def_complex3, stmt_assignment_and_condition, stmt_multilevel_indices_pointers, stmt_includes_defines_others, stmt_multilevel_pointers_indices_and_assigned_conditions]
 
-samples = [stmt_comment, stmt_var_decl_initialized, stmt_var_decl_array, stmt_assignment, stmt_func_decl_simple, stmt_func_decl_complex, stmt_func_decl_complex1, stmt_func_decl_complex2, stmt_func_def_complex1, stmt_func_def_complex2, stmt_assignment_func, stmt_if_assign, stmt_if_assign2, stmt_if_assign3, stmt_if_assign4, stmt_strcmp_cpy_cat, stmt_switch_case, stmt_switch_case1, stmt_switch_case2, stmt_switch_case22, stmt_switch_case3, stmt_while, stmt_if_while_complex1, stmt_while_complex2, stmt_while_complex3, stmt_define, stmt_include, stmt_include2, stmt_include3, stmt_typedef_many, stmt_func_def_vibmenu_full, stmt_increment_decrement, stmt_for, stmt_func_def_complex3]
-
-pattern_crlf, pattern_spaces_2_or_more, pattern_tabs, pattern_c_strcmp, pattern_c_strcpy, pattern_c_strcat, \
+pattern_crlf, pattern_spaces_2_or_more, pattern_tabs, pattern_c_strcmp, pattern_c_strcpy, pattern_c_strcat, pattern_c_strncpy, \
     pattern_include, pattern_define,  pattern_nl, pattern_star_slash, pattern_star_slash_semicolon = \
-        re.compile(r"\r\n"), re.compile(" +"), re.compile("\t+"), re.compile("strcmpi?\((.+?),(.+?)\)\s*==\s*0"), \
+        re.compile(r"\r\n"), re.compile(" +"), re.compile("\t+"), re.compile("strcmpi?\((.+?),(.+?)\)\s*([=|!]=)\s*0"), \
         re.compile("strcpy\((.+?)\s*,\s*(.+?)\)"), re.compile("strcat\(\s*(.+?)\s*,\s*(.+?)\s*\)"),\
+        re.compile("strncpy\((.+?)\s*,\s*(.+?)(\+?)(\d+?)*\,(\w+)\);\s+\w+\[\d+\]\s*\=\S+;?"), \
         re.compile(r"#include(.+)"), re.compile(r"#define(.+)"), re.compile(r"\n$"), re.compile(r"\*\/"),  re.compile(r"\*\/;")
