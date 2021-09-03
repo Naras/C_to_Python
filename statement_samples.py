@@ -270,3 +270,5 @@ pattern_crlf, pattern_spaces_2_or_more, pattern_tabs, pattern_c_strcmp, pattern_
         re.compile("strcpy\((.+?)\s*,\s*(.+?)\)"), re.compile("strcat\(\s*(.+?)\s*,\s*(.+?)\s*\)"),\
         re.compile("strncpy\((.+?)\s*,\s*(.+?)(\+?)(\d+?)*\,(\w+)\);\s+\w+\[\d+\]\s*\=\S+;?"), \
         re.compile(r"#include(.+)"), re.compile(r"#define(.+)"), re.compile(r"\n$"), re.compile(r"\*\/"),  re.compile(r"\*\/;")
+
+# ok, just to commit this
