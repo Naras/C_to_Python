@@ -555,7 +555,7 @@ if __name__ == '__main__':
         if not pattern_star_slash_semicolon.findall(statement): statement = pattern_star_slash.sub("*/;", statement)
         print("C statement: %s \nPython statement:\n%s" % (statement, main(statement))) # */ to */;
 
-    '''f = open("VIBMENU.C") #codecs.open("VIBMENU.C", encoding="utf-8")
+    f = open("VIBMENU.C") #codecs.open("VIBMENU.C", encoding="utf-8")
     # f = open("I:\\VBtoPython\\Amarakosha\\Semantic\\FINDVERB.C")
     csource = f.readlines()
     f.close()
@@ -589,4 +589,4 @@ if __name__ == '__main__':
     for statement in defines.split("\n"): include_statements.append(main(statement))
     print("C defines: %s \nPython inits: %s" % (defines, "\n".join(include_statements)))
     # exit(1)
-    print("C statement: %s \nPython statement: %s" % (rest, main(rest)))'''
+    print("C statement: %s \nPython statement: %s" % (rest, main(rest)))
