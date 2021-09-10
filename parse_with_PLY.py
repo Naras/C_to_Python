@@ -1,5 +1,6 @@
 __author__ = 'NarasMG'
-import re #, codecs #, icecream as ic
+
+import os  # re, codecs #, icecream as ic
 import ply.lex as lex, ply.yacc as yacc
 from statement_samples import *
 # Get the token map from the lexer.  This is required.
@@ -406,7 +407,7 @@ def p_statement_continue(p):
     p[0] = "continue"
 def p_statement_while(p):
     'statement : WHILE LPAREN expression RPAREN statement'
-    p[0] = ("while(" + p[3] + "):" + p[5]).replace("NULL", "None")
+    p[0] = ("while " + p[3] + ":" + p[5]).replace("NULL", "None")
 def p_statement_typedef(p):
     'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE name'
     body_init, body_get = "", ""
@@ -523,70 +524,69 @@ def p_error(p):
 
 def main(statement_asis):
     statement = pattern_tabs.sub("", pattern_spaces_2_or_more.sub(r" ", statement_asis))
-    # print('before lexing/parsing', statement[:-1])
     lexer.input(statement)
     # Tokenize
-    # while 1:
-    #    tok = lexer.token()
-    #    if not tok: break      # No more input
-    #    print("This is a token: (", tok.type,", ",tok.value,")")
     # for tok in iter(lex.token, None): print(repr(tok.type), repr(tok.value))
 
     # parser
     # Yacc example
     parser = yacc.yacc(debug=True)
-    # while True:
-    #     try:
-    #         s = input('calc > ')
-    #     except EOFError:
-    #         break
-    #     if not s: continue
     result = parser.parse(statement)
     return pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 == \2", result)))
-
+def add_semicolons_to_includes_defines(statement_asis):
+    # grammar handles includes/defines on separate lines, but cannot yet handle them on a single line unless we separate
+    # them with semicolons. So regex patters used to preprocess the source before lexing/parsing.
+    pat_includes, pat_defines, statement, statement_include, p_lens = [], [], '', '', 0
+    statement_asis = pattern_tabs.sub(' ', pattern_spaces_2_or_more.sub(' ', statement_asis)) + ' '
+    if pattern_include.findall(statement_asis):
+        pat_includes = [p for p in pattern_include.findall(statement_asis)]
+        statement_include = ' '.join(['#include ' + p + ';' for p in pat_includes])
+        statement_include += ' ' + statement_asis[len(statement_include):]
+    if pattern_define.findall(statement_asis):
+        pat_defines = [p for p in pattern_define.findall(statement_asis)]
+        # print(pattern_define.sub('#define \1 \2;', statement_asis))
+        statement = statement_include + ' '.join(['#define ' + p[0] + ' ' + p[1] + ';' for p in pat_defines])
+        # print('stmt_incl_define->len %d\nval %s'%(len(statement), statement))
+        p_lens = len(statement) - len(pat_includes) - len(pat_defines)
+    else: statement = statement_include
+    if p_lens > 0: statement += ' ' + statement_asis[p_lens:]
+    elif len(pat_includes) + len(pat_defines) == 0: statement = statement_asis
+    return statement
 
 if __name__ == '__main__':
     # Build the lexer
     lexer = lex.lex()
 
     # Test it out with various C source statements
-    for statement in samples:
+    for statement_asis in [stmt_define, stmt_include + ';' + stmt_include2, stmt_typedef_many]: #'#include <alloc.h> #include "data.h"   ;\nint choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean)\n{\nint yes=0,success=1;while(1){;}}'
+        statement_asis = statement_asis.strip()
         case_var_stmt_pairs, typedef_vars = [{}], [{}]
+        statement = add_semicolons_to_includes_defines(statement_asis)
         if not pattern_star_slash_semicolon.findall(statement): statement = pattern_star_slash.sub("*/;", statement)
         print("C statement: %s \nPython statement:\n%s" % (statement, main(statement))) # */ to */;
 
-    f = open("VIBMENU.C") #codecs.open("VIBMENU.C", encoding="utf-8")
-    # f = open("I:\\VBtoPython\\Amarakosha\\Semantic\\FINDVERB.C")
+    # filepath = "VIBMENU.C"
+    for filepath in ["VIBMENU.C", "I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H"]:
+        f = open(filepath) #codecs.open("VIBMENU.C", encoding="utf-8")
+        csource = f.readlines()
+        pattern = pattern_lf if os.path.splitext(filepath)[-1].lower() == '.h' else pattern_crlf  # Slight difference in a .h or a .c file preprocessing
+        f.close()
+        statement_asis = pattern_spaces_2_or_more.sub(" ", pattern.sub(" ", " ".join(csource)))
+        statement = pattern_star_slash.sub("*/;", add_semicolons_to_includes_defines(statement_asis))
+        case_var_stmt_pairs, typedef_vars = [{}], [{}]
+        print("C statement: %s \nPython statement:\n%s"%(statement, main(statement)))
+    
+    '''filepath = "I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H"
+    f = open(filepath)
     csource = f.readlines()
+    pattern = pattern_lf if os.path.splitext(filepath)[-1].lower() == '.h' else pattern_crlf
     f.close()
-    statement_asis = pattern_crlf.sub("\n", " ".join(csource))
-    includes = '\n '.join(["#include" + p for p in pattern_include.findall(statement_asis)])
-    # print("includes %s\nasis %s"%(includes, statement_asis))
-    # print(statement_asis, "\nincludes->", includes, pattern_nl.search(statement_asis))
-    # for match in pattern_not_include.findall(statement_asis, re.M): print(match)
-    splits = statement_asis.split(includes)
-    rest = pattern_crlf.sub("\n", splits[1])  # crlf to lf, */ to */; else statement boundary not recognized :-(
-    rest = pattern_star_slash.sub("*/;", rest)
-    # print("includes \n%s\nrest %s"%(includes, rest))
-    # exit(1)
+    statement_asis = pattern_spaces_2_or_more.sub(" ", pattern.sub(" ", " ".join(csource)))
+    # defines_new = ' '.join(["#define " + p[0] + ' ' + p[1] for p in pattern_define.findall(statement_asis)])
     case_var_stmt_pairs, typedef_vars = [{}], [{}]
-    include_statements = []
-    for statement in includes.split("\n"): include_statements.append(main(statement))
-    print("C includes: %s \nPython imports: %s"%(includes, "\n".join(include_statements)))
-    # for statement in rest.split('\n'): print("C statement: %s \nPython statement: %s"%(statement, main(statement)))
-    print("C statement: %s \nPython statement:\n%s"%(rest, main(rest)))
-    f = open("I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H")
-    csource = f.readlines()
-    f.close()
-    statement_asis = pattern_crlf.sub("\n", " ".join(csource))
-    defines = '\n '.join(["#define" + p for p in pattern_define.findall(statement_asis)])
-    case_var_stmt_pairs, typedef_vars = [{}], [{}]
-    # print("includes %s\nasis %s"%(includes, statement_asis))
-    splits = statement_asis.split(defines)
-    rest = pattern_crlf.sub("\n", splits[1])
-    rest = pattern_star_slash.sub("*/;", rest)
-    include_statements = []
-    for statement in defines.split("\n"): include_statements.append(main(statement))
-    print("C defines: %s \nPython inits: %s" % (defines, "\n".join(include_statements)))
-    # exit(1)
-    print("C statement: %s \nPython statement: %s" % (rest, main(rest)))
+    # splits = statement_asis.split(defines_new)
+    # rest = pattern_crlf.sub("\n", splits[1])
+    # rest = pattern_star_slash.sub("*/;", rest)
+    # defines = includes_defines(defines_new)
+    statement = pattern_star_slash.sub("*/;", includes_defines(statement_asis))
+    print("C statement: %s \nPython statement: %s" % (statement, main(statement)))'''
