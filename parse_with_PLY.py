@@ -1,10 +1,8 @@
 __author__ = 'NarasMG'
-
 import os  # re, codecs #, icecream as ic
+from typing import List
 import ply.lex as lex, ply.yacc as yacc
 from statement_samples import *
-# Get the token map from the lexer.  This is required.
-# from calclex import tokens
 
 #
 # List of token names.   This is always required
@@ -24,11 +22,10 @@ tokens = [
    'RIGHTBRACE',
    'ASSIGN',
    'EQUAL', 'NOTEQ', 'LARGE', 'SMALL', 'LRGEQ', 'SMLEQ',
-    'LEFTBRACKET', 'RIGHTBRACKET',
-    'POINTER_TO', 'POINTER_TO_STRUCT',
+    'POINTER', 'LEFTBRACKET', 'RIGHTBRACKET',
     "LITERAL_APOSTROPHE", 'LITERAL_QUOTE',
     "DOT", "COMMENT_MULTI_LINE", "COMMENT_SINGLE_LINE",
-    "PLUSPLUS", "MINUSMINUS", "PLUSEQUAL", "MINUSEQUAL"
+    "PLUSPLUS", "MINUSMINUS", "PLUSEQUAL", "MINUSEQUAL", 'USERTYPE'
 ]
 
 reserved={
@@ -92,6 +89,7 @@ t_RPAREN = r'\)'
 t_COMMA = r','
 t_SEMICOLON = r';'
 t_COLON = r':'
+t_POINTER = r'\-\>'
 t_FOR = r'for'
 t_WHILE = r'while'
 t_STRUCT = r'struct'
@@ -100,9 +98,8 @@ t_IF = r'if'
 t_DO = r'do'
 t_FLOAT = 'float'
 t_DOUBLE = r'double'
-t_POINTER_TO = r'\*[a-zA-Z_][a-zA-Z0-9_]*'
-t_LITERAL_APOSTROPHE = r'".*?"'
-t_LITERAL_QUOTE = r"'.*?'"
+t_LITERAL_APOSTROPHE = r'"[\s\S ]*?"'
+t_LITERAL_QUOTE = r"'[\s\S ]*?'"
 t_OR = r"\|\|"
 t_AND = r"\&\&"
 t_NOT = r"\!"
@@ -114,19 +111,14 @@ t_PLUSPLUS = r"\+\+"
 t_MINUSMINUS = r"\-\-"
 t_PLUSEQUAL = r"\+\="
 t_MINUSEQUAL = r"\-\="
+t_USERTYPE = r'[A-Z_][A-Z_][A-Z0-9_]*'
 
-def t_POINTER_TO_STRUCT(t):
-    r'[a-zA-Z_][a-zA-Z0-9_]*\-\>[a-zA-Z_][a-zA-Z0-9_]*'
-    # print(str(t.value).split("->"))
-    return t
-# A regular expression rule with some action code
-#
 def t_ID(t):
-    r'[a-zA-Z_][a-zA-Z0-9_]*'
+    r'[a-z_][a-zA-Z0-9_]*'
     if t.value in reserved:
-        t.type = reserved[ t.value ]
+        t.type = reserved[t.value]
     return t
-#
+
 def t_NUMBER(t):
   r'\d+'
   try:
@@ -154,7 +146,6 @@ def t_COMMENT_MULTI_LINE(t):
 def t_COMMENT_SINGLE_LINE(t):
     r"\/[\/]+.* "
     return t
-# No return value. Token discarded
 
 # parser actions
 def p_statement_empty(p):
@@ -171,7 +162,7 @@ def p_statement_multiple(p):
                     | block statement'''
     p[0] = p[1] + p[2] if len(p) == 3 else p[1] if p[3] == None else p[1] + '\n' + p[3]
 def p_statement_assign(p):
-    'statement : name ASSIGN expression'
+    'expression : id ASSIGN expression'
     p[0] = p[1] + ' = ' + str(p[3])
 def p_indexes(p):
     '''indexes :  indexes index
@@ -179,38 +170,30 @@ def p_indexes(p):
     p[0] = ''.join(pi for pi in p[1:])
 def p_index(p):
     '''index : LEFTBRACKET NUMBER RIGHTBRACKET
-              | LEFTBRACKET ID RIGHTBRACKET
+              | LEFTBRACKET id RIGHTBRACKET
               | LEFTBRACKET RIGHTBRACKET'''
     p[0] = '[' + str(p[2]) + ']' if len(p) == 4 else '[]'
-def p_name(p):
-    '''name : ID
-              | ID indexes
-              | POINTER_TO
-              | POINTER_TO_STRUCT'''
-    p[1] = p[1].replace("->", ".").replace("*", "")
-    p[0] = p[1] + p[2] if len(p) == 3 else p[1]
+def p_id(p):
+    '''id : TIMES ID
+            | ID
+            | id POINTER id
+            | ID indexes
+            | TIMES ID indexes'''
+    # print('id ', [pi for pi in p[1:]])
+    if len(p) == 2: p[0] = p[1]
+    elif len(p) == 3: p[0] = p[2] if p[1] == '*' else p[1] + p[2]
+    else: p[0] = p[2]  + p[3] if p[1] == '*' else p[1] + '.' + p[3]
 def p_statement_if(p):
-    'statement : IF LPAREN comparisons RPAREN statement'
-    # p[0] = 'if ' + p[3].strip() + ': ' + p[5]
+    'statement : IF LPAREN expression RPAREN statement'
     pat, itervar = re.compile('\s*!=\s*NULL'), p[5].split(" = ")[0]
     if not pat.search(p[3]): p[0] = 'if ' + pat.sub(" != None", p[3].strip()) + ': ' + p[5]
     else: p[0] = '\titer_' + itervar + ' = iter('  + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\tbreak;'
 def p_statement_if_else(p):
-    'statement : IF LPAREN comparisons RPAREN statement ELSE statement'
+    'statement : IF LPAREN expression RPAREN statement ELSE statement'
     # p[0] = 'if ' + p[3].strip() + ': ' + p[5] + '\n else: ' + p[7]
     pat, itervar = re.compile('\s*!=\s*NULL'), p[5].split(" = ")[0]
     if not pat.search(p[3]): p[0] = 'if ' + pat.sub(" != None", p[3].strip()) + ': ' + p[5] + '\n else: ' + p[7]
     else: p[0] = '\titer_' + itervar + ' = iter('  + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\t\tbreak;'
-def p_statement_comparisons(p):
-    '''comparisons : expression OR expression
-                    | expression AND expression
-                    | NOT expression
-                    | expression'''
-    p[0] = ""
-    for i in range(1, len(p)):
-        if p[i] != None:
-            if p[i] in ["||", "&&", "!"]: p[0] += ["or", "and", "not"][["||", "&&", "!"].index(p[i])] + " "
-            else: p[0] += p[i] + " "
 def p_operator(p):
     '''operator : EQUAL
                 | NOTEQ
@@ -229,8 +212,8 @@ def p_statement_expression(p):
     'statement : expression'
     p[0] = p[1]
 def p_expression_id(p):
-    'expression : ID'
-    p[0] = p[1]
+    'expression : id'
+    p[0] = None if p[1].strip().lower() == 'null' else p[1]
 def p_expression_array_element(p):
     'expression : ID indexes'
     p[0] = p[1] + p[2]
@@ -242,8 +225,12 @@ def p_expression_multiple(p):
     '''expression : expression AND expression
                     | expression OR expression
                     | NOT expression'''
-    op = [" and ", " or "][["&&", "||"].index(p[2])] if len(p) == 4 else " not "
-    p[0] = p[1] + op + p[3] if op in [" and ", " or "] else op + p[2]
+    pis = []
+    for pi in p[1:]:
+        pi = 'None' if pi == None else pi
+        pis.append(pi)
+    op = [" and ", " or "][["&&", "||"].index(pis[1])] if len(pis) == 3 else " not "
+    p[0] = pis[0] + op + pis[2] if op in [" and ", " or "] else op + pis[1]
 def p_expression_plus_minus(p):
     '''expression : expression PLUS term
                     | expression MINUS term'''
@@ -259,11 +246,10 @@ def p_term_times_div(p):
 def p_term_factor(p):
     'term : factor'
     p[0] = p[1]
-def p_factor_num(p):
+def p_factor_num_id(p):
     '''factor : NUMBER
-                | ID
-                | POINTER_TO_STRUCT'''
-    p[0] = str(p[1]).replace("->", ".")
+                | id'''
+    p[0] = str(p[1])
 def p_factor_expr(p):
     'factor : LPAREN expression RPAREN'
     p[0] = "(" + p[2] + ")"
@@ -272,7 +258,7 @@ def p_expression_function_invoke(p):
     p[0] = p[1] + '(' + p[3][:-2] + ')'
 def p_empty(p):
     'empty :'
-    pass
+    p[0] = ''
 def p_statement_var_declarations(p):
     'statement : typ varnames'
     p[0] = ""
@@ -295,20 +281,12 @@ def p_var_declarations(p):
         elif isinstance(pi, dict):
             for k, v in pi.items(): p[0][k] = v
 def p_var_declaration(p):
-    '''varname : ID
-                | ID ASSIGN expression
-                | ID LEFTBRACKET RIGHTBRACKET
-                | ID LEFTBRACKET RIGHTBRACKET ASSIGN values_list
-                | ID LEFTBRACKET NUMBER RIGHTBRACKET
-                | POINTER_TO
-                | POINTER_TO LEFTBRACKET RIGHTBRACKET
-                | POINTER_TO LEFTBRACKET RIGHTBRACKET ASSIGN values_list
-                | POINTER_TO LEFTBRACKET NUMBER RIGHTBRACKET'''
+    '''varname : id
+                | id ASSIGN expression
+                | id ASSIGN values_list'''
     p[0] = []
     for pi in p[1:]:
-        if pi != None:
-            if isinstance(pi, str): pi = pi.replace('*', '')
-            p[0].append(pi)
+        if pi != None: p[0].append(pi)
 def p_var_values_list(p):
     'values_list : LEFTBRACE values RIGHTBRACE'
     p[0] = p[2:-1]
@@ -316,7 +294,6 @@ def p_var_values(p):
     '''values : values COMMA expression
                 | values COMMA
                 | expression'''
-    # print("values", [pi for pi in p[1:]])
     p[0] = ", ". join([v for v in p[1:] if v != ","])
 def p_statement_function_decl(p):
     'statement : typ function_name LPAREN arg_declarations RPAREN'
@@ -328,7 +305,7 @@ def p_arg_declarations(p):
     p[0] = ''
     for i in range(1, len(p), 2): p[0] += p[i]
 def p_arg_declaration(p):
-    'arg_declaration : arg_type name'
+    'arg_declaration : arg_type id'
     if p[2][-2:] == '[]':  p[2], p[1] = p[2][:-2], 'List[' + p[1] + ']'
     p[0] = p[2] + ' ' + p[1] + ', '
 def p_arg_type(p):
@@ -339,7 +316,7 @@ def p_arg_type(p):
                   | CHAR
                   | UNSIGNED CHAR
                   | FILE
-                  | ID'''
+                  | USERTYPE'''
     if p[1] == "unsigned": p[1] = p[2]
     p[0] = 'str' if p[1] == 'char' else 'TextIO' if p[1] == 'FILE' else 'float' if p[1] == 'long' else p[1]
 def p_function_name(p):
@@ -359,7 +336,7 @@ def p_statement_function_def(p):
     'statement : typ function_name LPAREN arg_declarations RPAREN statement'
     p[0] = 'def ' + p[2] + '(' + p[4][:-2] + ') -> ' + str(p[1]) + ":\n\t" + p[6].replace("\n", "\n\t")
 def p_statement_switch_case(p):
-    'statement : SWITCH LPAREN name RPAREN LEFTBRACE cases RIGHTBRACE'
+    'statement : SWITCH LPAREN id RPAREN LEFTBRACE cases RIGHTBRACE'
     p[0] = "if " + p[3] + p[6].replace("break", "#break").replace("elif", "elif " + p[3])
     case_var_stmt_pairs.clear()
     case_var_stmt_pairs.append({})
@@ -407,9 +384,9 @@ def p_statement_continue(p):
     p[0] = "continue"
 def p_statement_while(p):
     'statement : WHILE LPAREN expression RPAREN statement'
-    p[0] = ("while " + p[3] + ":" + p[5]).replace("NULL", "None")
+    p[0] = ("while " + p[3] + ":" + p[5]).replace("null", "None")
 def p_statement_typedef(p):
-    'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE name'
+    'statement : TYPEDEF STRUCT LEFTBRACE declarations RIGHTBRACE USERTYPE'
     body_init, body_get = "", ""
     pair = typedef_vars[-1]
     for k, v in pair.items(): dimname = "[self." + k + "]"
@@ -438,9 +415,9 @@ def p_statement_delimiter(p):
                             | statement_delimiter COMMENT_MULTI_LINE SEMICOLON
                             | SEMICOLON'''
 def p_type_declaration(p):
-    '''declaration : typ name
-                    | typ name ASSIGN expression
-                    | typ name LEFTBRACKET NUMBER RIGHTBRACKET'''
+    '''declaration : typ id
+                    | typ id ASSIGN expression
+                    | typ id LEFTBRACKET NUMBER RIGHTBRACKET'''
     p[0] = {}
     if len(p) == 3:
         if '=' in p[2]: nam, siz = p[2].split('=')
@@ -459,11 +436,11 @@ def p_type(p):
             | CHAR
             | UNSIGNED CHAR
             | FILE
-            | ID'''
+            | USERTYPE'''
     if p[1] == "unsigned": p[1] = p[2]
     p[0] = 'str' if p[1] == 'char' else p[1]
 def p_statement_include(p):
-    '''statement : INCLUDE SMALL name DOT name LARGE
+    '''statement : INCLUDE SMALL ID DOT ID LARGE
                     | INCLUDE LITERAL_APOSTROPHE
                     | INCLUDE LITERAL_QUOTE'''
     p[0] = p[1] + " " + "".join([pi for pi in p[2:]])
@@ -522,71 +499,69 @@ def p_error(p):
 
     # Build the parser
 
-def main(statement_asis):
-    statement = pattern_tabs.sub("", pattern_spaces_2_or_more.sub(r" ", statement_asis))
+def main(statement: str) -> str:
     lexer.input(statement)
     # Tokenize
     # for tok in iter(lex.token, None): print(repr(tok.type), repr(tok.value))
 
     # parser
-    # Yacc example
     parser = yacc.yacc(debug=True)
     result = parser.parse(statement)
     return pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 == \2", result)))
-def add_semicolons_to_includes_defines(statement_asis):
+def add_semicolons_to_includes_defines(statement_asis: str) -> str:
     # grammar handles includes/defines on separate lines, but cannot yet handle them on a single line unless we separate
     # them with semicolons. So regex patters used to preprocess the source before lexing/parsing.
-    pat_includes, pat_defines, statement, statement_include, p_lens = [], [], '', '', 0
+    pat_includes, pat_defines, statement, statement_include, index_rest = [], [], '', '', 0
     statement_asis = pattern_tabs.sub(' ', pattern_spaces_2_or_more.sub(' ', statement_asis)) + ' '
     if pattern_include.findall(statement_asis):
         pat_includes = [p for p in pattern_include.findall(statement_asis)]
         statement_include = ' '.join(['#include ' + p + ';' for p in pat_includes])
-        statement_include += ' ' + statement_asis[len(statement_include):]
+        index_rest = statement_asis.index('#include ' + pat_includes[-1]) + len('#include ' + pat_includes[-1])
     if pattern_define.findall(statement_asis):
         pat_defines = [p for p in pattern_define.findall(statement_asis)]
+        statement_defines = ' '.join(['#define ' + p[0].lower() + ' ' + p[1] + ';' for p in pat_defines])   # lower() bcos all upper considered a USERTYPE
         # print(pattern_define.sub('#define \1 \2;', statement_asis))
-        statement = statement_include + ' '.join(['#define ' + p[0] + ' ' + p[1] + ';' for p in pat_defines])
+        statement = statement_include + ' ' + statement_defines
         # print('stmt_incl_define->len %d\nval %s'%(len(statement), statement))
-        p_lens = len(statement) - len(pat_includes) - len(pat_defines)
-    else: statement = statement_include
-    if p_lens > 0: statement += ' ' + statement_asis[p_lens:]
+        index_rest = statement_asis.index('#define ' + pat_defines[-1][0] + ' ' + pat_defines[-1][1]) + len('#define ' + pat_defines[-1][0] + ' ' + pat_defines[-1][1])
+    else: statement = statement_include + ' ' + statement_asis[index_rest:]
+    if index_rest > 0: statement += ';' + statement_asis[index_rest:]
     elif len(pat_includes) + len(pat_defines) == 0: statement = statement_asis
+    # print('final->\n%s\n%s'%(statement, statement_asis))
     return statement
-
+def lowFirstLetter(words: List[str], statement: str) -> str:
+    for s in words:
+        s = s.strip()
+        if len(s) <= 1 or s.isupper() or s.islower(): pass
+        else:
+            pos = 1 if s[0] == '*' and s[1:] == ' ' else 0
+            word = s[pos].lower() + s[pos+1:]
+            statement = statement.replace(s, word)
+    return statement
 if __name__ == '__main__':
     # Build the lexer
     lexer = lex.lex()
 
     # Test it out with various C source statements
-    for statement_asis in [stmt_define, stmt_include + ';' + stmt_include2, stmt_typedef_many]: #'#include <alloc.h> #include "data.h"   ;\nint choice(char type,unsigned char *word,unsigned char voice[],int pos,VIBAK *tvibptr,FILE *afp,long fl,unsigned char *VerbMean)\n{\nint yes=0,success=1;while(1){;}}'
-        statement_asis = statement_asis.strip()
+    pat_null, pat_ids = re.compile('\s*\=\s*(NULL)'), re.compile('\*?\w*\s*')
+    for statement_asis in samples:
+        statement_asis = pattern_tabs.sub("", pattern_spaces_2_or_more.sub(r" ", statement_asis.strip()))
+        pat_list = [p for p in pat_ids.findall(statement_asis)]
+        statement_asis = pat_null.sub('=null', lowFirstLetter(pat_list, statement_asis))  #.replace('=NULL', '=null')
         case_var_stmt_pairs, typedef_vars = [{}], [{}]
         statement = add_semicolons_to_includes_defines(statement_asis)
         if not pattern_star_slash_semicolon.findall(statement): statement = pattern_star_slash.sub("*/;", statement)
-        print("C statement: %s \nPython statement:\n%s" % (statement, main(statement))) # */ to */;
+        print("C statement: %s \nPython statement:\n%s" % (statement, main(statement)))
 
-    # filepath = "VIBMENU.C"
-    for filepath in ["VIBMENU.C", "I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H"]:
-        f = open(filepath) #codecs.open("VIBMENU.C", encoding="utf-8")
+    senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal', 'I:\\VBtoPython\\Amarakosha\\Semantic'
+    for fil in [os.path.join(semantic, 'VIBMENU.C'), os.path.join(senAnal, 'SYNTAX.H'), os.path.join(semantic, 'COMPAT.C'), os.path.join(semantic, 'FINDVERB.C'), ]:
+        f = open(fil)
         csource = f.readlines()
-        pattern = pattern_lf if os.path.splitext(filepath)[-1].lower() == '.h' else pattern_crlf  # Slight difference in a .h or a .c file preprocessing
+        pattern = pattern_lf if os.path.splitext(fil)[-1].lower() == '.h' else pattern_crlf  # Slight difference in a .h or a .c file preprocessing
         f.close()
         statement_asis = pattern_spaces_2_or_more.sub(" ", pattern.sub(" ", " ".join(csource)))
+        pat_list = [p for p in pat_ids.findall(statement_asis)]
+        statement_asis = pat_null.sub('=null', lowFirstLetter(pat_list, statement_asis))
         statement = pattern_star_slash.sub("*/;", add_semicolons_to_includes_defines(statement_asis))
         case_var_stmt_pairs, typedef_vars = [{}], [{}]
         print("C statement: %s \nPython statement:\n%s"%(statement, main(statement)))
-    
-    '''filepath = "I:\VBtoPython\Amarakosha\Senanal\SYNTAX.H"
-    f = open(filepath)
-    csource = f.readlines()
-    pattern = pattern_lf if os.path.splitext(filepath)[-1].lower() == '.h' else pattern_crlf
-    f.close()
-    statement_asis = pattern_spaces_2_or_more.sub(" ", pattern.sub(" ", " ".join(csource)))
-    # defines_new = ' '.join(["#define " + p[0] + ' ' + p[1] for p in pattern_define.findall(statement_asis)])
-    case_var_stmt_pairs, typedef_vars = [{}], [{}]
-    # splits = statement_asis.split(defines_new)
-    # rest = pattern_crlf.sub("\n", splits[1])
-    # rest = pattern_star_slash.sub("*/;", rest)
-    # defines = includes_defines(defines_new)
-    statement = pattern_star_slash.sub("*/;", includes_defines(statement_asis))
-    print("C statement: %s \nPython statement: %s" % (statement, main(statement)))'''

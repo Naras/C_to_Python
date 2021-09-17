@@ -262,7 +262,6 @@ def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strncpy.sub
 def prnt(stmt): print("C statement: %s \nPython statement:\n%s" % (stmt, parse(preprocess(stmt))))  # print("C statement: %s\ntree\n%s \nPython statement:\n%s" % (stmt, pretty(stmt), parse(stmt)))
 if __name__ == '__main__':
     for stmt in samples: prnt(stmt)
-        # print('regex_strncpy->%s'%pattern_star_slash.sub("*/;", pattern_c_strncpy.sub(r"\1 = \2[\4][:\5]", pattern_c_strcpy.sub(r"\1 = \2", (pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 \3 \2", stmt)))))))
     senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal', 'I:\\VBtoPython\\Amarakosha\\Semantic'
     for fil in [os.path.join(semantic, 'COMPAT.C'), os.path.join(semantic, 'FINDVERB.C'), os.path.join(semantic, 'VIBMENU.C'), os.path.join(senAnal, 'SYNTAX.H')]:
         f = open(fil) #codecs.open("VIBMENU.C", encoding="utf-8")
