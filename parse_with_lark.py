@@ -271,3 +271,4 @@ if __name__ == '__main__':
         statement = pattern_crlf.sub("\n", statement_asis)  # crlf to lf, */ to */; else statement boundary not recognized :-(
         statement = pattern_star_slash.sub("*/;", statement)
         print("C statement: %s \nPython statement:\n%s" % (statement, parse(preprocess(statement))))
+
