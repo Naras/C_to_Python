@@ -2,7 +2,7 @@ __author__ = 'NarasMG'
 import os  # re, codecs #, icecream as ic
 from typing import List
 import ply.lex as lex, ply.yacc as yacc
-from statement_samples import *
+from c_statements import *
 
 #
 # List of token names.   This is always required

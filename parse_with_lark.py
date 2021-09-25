@@ -1,7 +1,7 @@
 import os
 
 from lark import Lark, Transformer, v_args
-from statement_samples import *
+from c_statements import *
 
 c_grammar = r"""
     ?start: statement
