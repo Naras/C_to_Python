@@ -157,7 +157,7 @@ c_grammar = r"""
 """
 
 @v_args(inline=True)
-class TreeToPython(Transformer):
+class TreeToTargetLanguage(Transformer):
     def __init__(self):
         self.vars = {}
     # number = float
@@ -182,9 +182,9 @@ class TreeToPython(Transformer):
     def muldivmodulo(self, a, op, b):
         return str(a) + str(op) + str(b)
     def logical_or(self, a, b):
-        return str(a) + target_language_vocabulary["or"] + str(b)
+        return str(a) + target_language_vocabulary["or"] + ' ' + str(b)
     def logical_and(self, a, b):
-        return str(a) + target_language_vocabulary["and"] + str(b)
+        return str(a) + target_language_vocabulary["and"] + ' ' + str(b)
     def paranthesize(self, expression):
         return "(" + str(expression) + ")"
     def plus(self):
@@ -226,12 +226,12 @@ class TreeToPython(Transformer):
     def condition_expression(self, expr):
         return str(expr)
     def statement_if(self, expression, statement):
-        return target_language_vocabulary["if"] + expression + ": " + statement.replace("\n", "\n\t")
+        return target_language_vocabulary["if"] + ' ' + expression + ": " + statement.replace("\n", "\n\t")
     def statement_if_else(self, expression, statement_if, statement_else):
         # return "if " + expression + ": " + statement_if + "\nelse: " + statement_else
         pat, itervar = re.compile('\s*!=\s*NULL'), statement_if.split(" = ")[0]
         if not pat.search(expression):
-            res = target_language_vocabulary["if"] + pat.sub(" != None", expression.strip()) + ':' + statement_if.replace("\n", "\n\t") + "\n" + target_language_vocabulary["else"] + ":" + statement_else.replace("\n", "\n\t")
+            res = target_language_vocabulary["if"] + ' ' + pat.sub(" != None", expression.strip()) + ':' + statement_if.replace("\n", "\n\t") + "\n" + target_language_vocabulary["else"] + ":" + statement_else.replace("\n", "\n\t")
         else:
             res = '\titer_' + itervar + ' = iter(' + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\t\tbreak;'
         return "\n" + res
@@ -282,7 +282,7 @@ class TreeToPython(Transformer):
     def literal(self, arg):
         return arg[1:-1]
     def function_declaration(self, typ, args, statement):
-        return target_language_vocabulary["define"] + str(args[0]) + "(" + ', '.join(args[1:]) + ") -> " + typ + ": " + statement.replace("\n", "\n\t")
+        return target_language_vocabulary["define"] + ' ' + str(args[0]) + "(" + ', '.join(args[1:]) + ") -> " + typ + ": " + statement.replace("\n", "\n\t")
     def signature_noargs(self, name):
         return [name]
     def signature_args(self, *args):
@@ -292,7 +292,8 @@ class TreeToPython(Transformer):
     def arg_declaration_array(self, typ, name):
         return str(name) + target_language_vocabulary["List"] + '[' + str(typ) + ']'
     def function_invoke_parameters(self, name, parameters):
-        return str(name) + "(" + str(parameters) + ")"
+        if name != 'strcat': return str(name) + "(" + str(parameters) + ")"
+        else: return parameters.split(',')[0] + ' += ' + parameters.split(',')[1]
     def function_invoke_noparameters(self, name):
         return str(name) + "()"
     def parameter_list(self, *args):
@@ -309,12 +310,12 @@ class TreeToPython(Transformer):
         return target_language_vocabulary['return'] + str(expression)
     def switch(self, *args):
         variable, statements = args[0], args[1:]
-        stmt, ifelif = "", target_language_vocabulary["if"]
+        stmt, ifelif = "", target_language_vocabulary["if"] + ' '
         for statement in statements:
             for k, v in statement.items():
                 pre = ifelif + variable + str(k) + ":" if str(k) != "default" else "\n" + target_language_vocabulary["else"] + ":"
                 stmt += pre + "\n\t" + "#<" + target_language_vocabulary["case"] + ">\n\t" + str(v).replace("\n", "\n\t").replace("break", target_language_vocabulary["break"]).replace("#<statement-multiple>{", "").replace("#}</statement-multiple>", "") + "#<\ " + target_language_vocabulary['case'] + ">"
-                ifelif = "\n" + target_language_vocabulary["elif"]
+                ifelif = "\n" + target_language_vocabulary["elif"] + ' '
         return stmt
     def case(self, expression, statement):
         return {str(" == " + expression): str(statement)}
@@ -380,9 +381,9 @@ class TreeToPython(Transformer):
 
 c_parser = Lark(c_grammar, parser='earley', lexer='standard')
 
-def parse(x): return TreeToPython().transform(c_parser.parse(x))
+def parse(x): return TreeToTargetLanguage().transform(c_parser.parse(x))
 def pretty(x): return c_parser.parse(x).pretty()
-def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strncpy.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2", (pattern_c_strcat.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 \3 \2", stmt))))))
+def preprocess(stmt): return pattern_star_slash.sub("*/;", pattern_c_strncpy.sub(r"\1 = \2", pattern_c_strcpy.sub(r"\1 = \2", pattern_c_strcmp.sub(r"\1 \3 \2", stmt))))
 def prnt(stmt): print("C statement: %s \n%s:\n%s" % (stmt, prefix, parse(preprocess(stmt))))  # print("C statement: %s\ntree\n%s \nPython statement:\n%s" % (stmt, pretty(stmt), parse(stmt)))
 
 if __name__ == '__main__':

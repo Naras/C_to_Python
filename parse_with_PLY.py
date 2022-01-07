@@ -1,3 +1,5 @@
+#!/opt/local/bin/python3.8
+# -*- coding: utf-8 -*-
 __author__ = 'NarasMG'
 import os  # re, codecs #, icecream as ic
 from typing import List
@@ -185,13 +187,13 @@ def p_id(p):
     else: p[0] = p[2]  + p[3] if p[1] == '*' else p[1] + '.' + p[3]
 def p_statement_if(p):
     'statement : IF LPAREN expression RPAREN statement'
-    pat, itervar = re.compile('\s*!=\s*NULL'), p[5].split(" = ")[0]
+    pat, itervar = re.compile('\.next\s*==\s*\w+'), p[3].split(".next")[0]
     if not pat.search(p[3]): p[0] = 'if ' + pat.sub(" != None", p[3].strip()) + ': ' + p[5]
-    else: p[0] = '\titer_' + itervar + ' = iter('  + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\tbreak;'
+    else: p[0] = '\titer_' + itervar + ' = iter('  + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\t\tbreak;'
 def p_statement_if_else(p):
     'statement : IF LPAREN expression RPAREN statement ELSE statement'
     # p[0] = 'if ' + p[3].strip() + ': ' + p[5] + '\n else: ' + p[7]
-    pat, itervar = re.compile('\s*!=\s*NULL'), p[5].split(" = ")[0]
+    pat, itervar = re.compile('\.next\s*!=\s*\w+'), p[5].split(" = ")[0]
     if not pat.search(p[3]): p[0] = 'if ' + pat.sub(" != None", p[3].strip()) + ': ' + p[5] + '\n else: ' + p[7]
     else: p[0] = '\titer_' + itervar + ' = iter('  + itervar + ') # move this outside the while block\n\ttry:\n\t\tnext(iter_' + itervar + ')\n\texcept StopIterationException as e:\n\t\tbreak;'
 def p_operator(p):
@@ -545,15 +547,19 @@ if __name__ == '__main__':
     # Test it out with various C source statements
     pat_null, pat_ids = re.compile('\s*\=\s*(NULL)'), re.compile('\*?\w*\s*')
     for statement_asis in samples:
-        statement_asis = pattern_tabs.sub("", pattern_spaces_2_or_more.sub(r" ", statement_asis.strip()))
-        pat_list = [p for p in pat_ids.findall(statement_asis)]
-        statement_asis = pat_null.sub('=null', lowFirstLetter(pat_list, statement_asis))  #.replace('=NULL', '=null')
-        case_var_stmt_pairs, typedef_vars = [{}], [{}]
-        statement = add_semicolons_to_includes_defines(statement_asis)
-        if not pattern_star_slash_semicolon.findall(statement): statement = pattern_star_slash.sub("*/;", statement)
-        print("C statement: %s \nPython statement:\n%s" % (statement, main(statement)))
+        try:
+            statement_asis = pattern_tabs.sub("", pattern_spaces_2_or_more.sub(r" ", statement_asis.strip()))
+            pat_list = [p for p in pat_ids.findall(statement_asis)]
+            statement_asis = pat_null.sub('=null', lowFirstLetter(pat_list, statement_asis))  #.replace('=NULL', '=null')
+            case_var_stmt_pairs, typedef_vars = [{}], [{}]
+            statement = add_semicolons_to_includes_defines(statement_asis)
+            if not pattern_star_slash_semicolon.findall(statement): statement = pattern_star_slash.sub("*/;", statement)
+            print("C statement:%s \nPython statement:%s" % (statement, main(statement)))
+        except Exception as e:
+            print("C statement: %s\n Exception %s" % (statement_asis, e))
+        finally: continue
 
-    senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal', 'I:\\VBtoPython\\Amarakosha\\Semantic'
+    '''senAnal, semantic = 'I:\\VBtoPython\\Amarakosha\\Senanal', 'I:\\VBtoPython\\Amarakosha\\Semantic'
     for fil in [os.path.join(semantic, 'VIBMENU.C'), os.path.join(senAnal, 'SYNTAX.H'), os.path.join(semantic, 'COMPAT.C'), os.path.join(semantic, 'FINDVERB.C'), ]:
         f = open(fil)
         csource = f.readlines()
@@ -564,4 +570,4 @@ if __name__ == '__main__':
         statement_asis = pat_null.sub('=null', lowFirstLetter(pat_list, statement_asis))
         statement = pattern_star_slash.sub("*/;", add_semicolons_to_includes_defines(statement_asis))
         case_var_stmt_pairs, typedef_vars = [{}], [{}]
-        print("C statement: %s \nPython statement:\n%s"%(statement, main(statement)))
+        print("C statement: %s \nPython statement:\n%s"%(statement, main(statement)))'''
